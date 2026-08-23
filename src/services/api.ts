@@ -87,6 +87,19 @@ export const api = {
     });
   },
 
+  async updateTenant(id: string, data: Partial<Tenant>) {
+    return request<Tenant>(`/tenants/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async deleteTenant(id: string) {
+    return request<{ success: boolean; message: string }>(`/tenants/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
   // Users
   async getUsers() {
     return request<User[]>('/users');
@@ -102,6 +115,13 @@ export const api = {
   // Drivers & Vehicles
   async getDrivers() {
     return request<Driver[]>('/drivers');
+  },
+
+  async updateDriver(id: string, data: Partial<Driver>) {
+    return request<Driver>(`/drivers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
   },
 
   async getDriverDetails(id: string) {

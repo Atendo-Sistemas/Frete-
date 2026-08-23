@@ -344,6 +344,81 @@ apiRouter.post('/tenants', (req: AuthenticatedRequest, res: Response) => {
   res.status(201).json(newTenant);
 });
 
+apiRouter.put('/tenants/:id', (req: AuthenticatedRequest, res: Response) => {
+  if (req.user?.role !== 'SUPER_ADMIN' && req.user?.tenantId !== req.params.id) {
+    return res.status(403).json({ error: 'Sem permissão para editar esta empresa' });
+  }
+
+  const tenant = db.tenants.find(t => t.id === req.params.id);
+  if (!tenant) return res.status(404).json({ error: 'Empresa não encontrada' });
+
+  const { name, legalName, cnpj, email, phone, zipCode, address, number, neighborhood, city, state, plan, status } = req.body;
+  if (name) tenant.name = name;
+  if (legalName) tenant.legalName = legalName;
+  if (cnpj) tenant.cnpj = cnpj;
+  if (email) tenant.email = email;
+  if (phone) tenant.phone = phone;
+  if (zipCode) tenant.zipCode = zipCode;
+  if (address) tenant.address = address;
+  if (number) tenant.number = number;
+  if (neighborhood) tenant.neighborhood = neighborhood;
+  if (city) tenant.city = city;
+  if (state) tenant.state = state;
+  if (plan) {
+    tenant.plan = plan;
+    tenant.planLimits = {
+      maxUsers: plan === 'EMPRESARIAL' ? 100 : plan === 'PROFISSIONAL' ? 25 : 5,
+      maxDrivers: plan === 'EMPRESARIAL' ? 500 : plan === 'PROFISSIONAL' ? 100 : 20,
+      maxFreightsMonthly: plan === 'EMPRESARIAL' ? 2000 : plan === 'PROFISSIONAL' ? 500 : 50,
+      customForms: plan !== 'BASICO',
+      exportReports: true,
+      prioritySupport: plan === 'EMPRESARIAL'
+    };
+  }
+  if (status) tenant.status = status;
+  tenant.updatedAt = new Date().toISOString();
+
+  db.addAuditLog({
+    userId: req.user!.id,
+    userName: req.user!.name,
+    userRole: req.user!.role,
+    action: 'ATUALIZAR_EMPRESA',
+    entity: 'Tenant',
+    entityId: tenant.id,
+    details: `Empresa ${tenant.name} atualizada`
+  });
+
+  res.json(tenant);
+});
+
+apiRouter.delete('/tenants/:id', (req: AuthenticatedRequest, res: Response) => {
+  if (req.user?.role !== 'SUPER_ADMIN') {
+    return res.status(403).json({ error: 'Apenas Super Admin pode excluir empresas' });
+  }
+
+  const index = db.tenants.findIndex(t => t.id === req.params.id);
+  if (index === -1) return res.status(404).json({ error: 'Empresa não encontrada' });
+
+  if (db.tenants.length <= 1) {
+    return res.status(400).json({ error: 'Não é possível excluir a última empresa do sistema' });
+  }
+
+  const tenant = db.tenants[index];
+  db.tenants.splice(index, 1);
+
+  db.addAuditLog({
+    userId: req.user!.id,
+    userName: req.user!.name,
+    userRole: req.user!.role,
+    action: 'EXCLUIR_EMPRESA',
+    entity: 'Tenant',
+    entityId: tenant.id,
+    details: `Empresa ${tenant.name} excluída`
+  });
+
+  res.json({ success: true, message: 'Empresa excluída com sucesso' });
+});
+
 /* =========================================================================
    3. USERS MANAGEMENT
    ========================================================================= */
@@ -405,18 +480,37 @@ apiRouter.get('/drivers', (req: AuthenticatedRequest, res: Response) => {
   res.json(drivers);
 });
 
-apiRouter.get('/drivers/:id', (req: AuthenticatedRequest, res: Response) => {
+apiRouter.put('/drivers/:id', (req: AuthenticatedRequest, res: Response) => {
   const driver = db.drivers.find(d => d.id === req.params.id);
   if (!driver) return res.status(404).json({ error: 'Motorista não encontrado' });
-  
-  const vehicles = db.vehicles.filter(v => v.driverId === driver.id);
-  const assignments = db.freights.filter(f => f.assignedDriverId === driver.id);
 
-  res.json({
-    driver,
-    vehicles,
-    freightsHistory: assignments
+  const { name, phone, cpf, rg, birthDate, zipCode, address, city, state, cnh, cnhCategory, cnhExpiresAt, status } = req.body;
+  if (name) driver.name = name;
+  if (phone) driver.phone = phone;
+  if (cpf) driver.cpf = cpf;
+  if (rg) driver.rg = rg;
+  if (birthDate) driver.birthDate = birthDate;
+  if (zipCode) driver.zipCode = zipCode;
+  if (address) driver.address = address;
+  if (city) driver.city = city;
+  if (state) driver.state = state;
+  if (cnh) driver.cnh = cnh;
+  if (cnhCategory) driver.cnhCategory = cnhCategory;
+  if (cnhExpiresAt) driver.cnhExpiresAt = cnhExpiresAt;
+  if (status) driver.status = status;
+
+  db.addAuditLog({
+    tenantId: driver.tenantId,
+    userId: req.user?.id || 'system',
+    userName: req.user?.name || 'Sistema',
+    userRole: req.user?.role || 'ADMIN',
+    action: 'ATUALIZAR_MOTORISTA',
+    entity: 'Driver',
+    entityId: driver.id,
+    details: `Motorista ${driver.name} atualizado`
   });
+
+  res.json(driver);
 });
 
 apiRouter.get('/vehicles', (req: AuthenticatedRequest, res: Response) => {
