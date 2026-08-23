@@ -1,0 +1,6 @@
+{
+  "name": "Portal de Fretes e Motoristas",
+  "description": "Plataforma SaaS multi-tenant para gestão, distribuição e aceite de fretes com portal para empresas e aplicativo PWA para motoristas.",
+  "requestFramePermissions": ["geolocation", "notifications"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
