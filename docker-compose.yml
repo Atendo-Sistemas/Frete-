@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  elo-log:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: elo-log-app
+    restart: unless-stopped
+    ports:
+      # Mapeia a porta interna 3000 do container para a porta 3000 (ou outra porta livre) da sua VPS
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=production
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      # Adicione outras variáveis de ambiente se necessário
+    networks:
+      - elo-log-network
+      # Caso use um proxy reverso global rodando em outra rede, descomente a rede abaixo:
+      # - proxy-network
+
+networks:
+  elo-log-network:
+    driver: bridge
+  # Caso use rede externa para conectar com Nginx Proxy Manager, Traefik ou Caddy, descomente abaixo:
+  # proxy-network:
+  #   external: true

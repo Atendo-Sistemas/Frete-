@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Driver, Vehicle } from '../../types';
 import { api } from '../../services/api';
+import { useSaaS } from '../../context/SaaSContext';
 import { VehicleBadge } from '../common/Badge';
 import { 
   Users, 
@@ -20,6 +21,17 @@ import {
 } from 'lucide-react';
 
 export const DriverManager: React.FC = () => {
+  const { getField } = useSaaS();
+  const fName = getField('driverForm', 'name') || { label: 'Nome Completo', placeholder: 'Ex: João da Silva', enabled: true, required: true };
+  const fEmail = getField('driverForm', 'email') || { label: 'E-mail', placeholder: 'joao@translog.com', enabled: true, required: true };
+  const fPhone = getField('driverForm', 'phone') || { label: 'Telefone / WhatsApp', placeholder: '(11) 98888-7777', enabled: true, required: true };
+  const fCpf = getField('driverForm', 'cpf') || { label: 'CPF', placeholder: '123.456.789-00', enabled: true, required: true };
+  const fRg = getField('driverForm', 'rg') || { label: 'RG', placeholder: '12.345.678-9', enabled: true, required: false };
+  const fCity = getField('driverForm', 'city') || { label: 'Cidade', placeholder: 'São Paulo', enabled: true, required: true };
+  const fState = getField('driverForm', 'state') || { label: 'Estado (UF)', placeholder: 'SP', enabled: true, required: true };
+  const fCnh = getField('driverForm', 'cnh') || { label: 'CNH', placeholder: 'Nº CNH', enabled: true, required: true };
+  const fCnhCategory = getField('driverForm', 'cnhCategory') || { label: 'Categoria', placeholder: '', enabled: true, required: true };
+
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
@@ -307,110 +319,144 @@ export const DriverManager: React.FC = () => {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Nome Completo</label>
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
-                    placeholder="Ex: João da Silva"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">E-mail</label>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
-                    placeholder="joao@translog.com"
-                  />
-                </div>
+                {fName.enabled && (
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      {fName.label} {fName.required && <span className="text-red-500">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      required={fName.required}
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
+                      placeholder={fName.placeholder}
+                    />
+                  </div>
+                )}
+                {fEmail.enabled && (
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      {fEmail.label} {fEmail.required && <span className="text-red-500">*</span>}
+                    </label>
+                    <input
+                      type="email"
+                      required={fEmail.required}
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
+                      placeholder={fEmail.placeholder}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Telefone / WhatsApp</label>
-                  <input
-                    type="text"
-                    required
-                    value={phone}
-                    onChange={e => setPhone(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
-                    placeholder="(11) 98888-7777"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">CPF</label>
-                  <input
-                    type="text"
-                    required
-                    value={cpf}
-                    onChange={e => setCpf(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
-                    placeholder="123.456.789-00"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">RG</label>
-                  <input
-                    type="text"
-                    value={rg}
-                    onChange={e => setRg(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
-                    placeholder="12.345.678-9"
-                  />
-                </div>
+                {fPhone.enabled && (
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      {fPhone.label} {fPhone.required && <span className="text-red-500">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      required={fPhone.required}
+                      value={phone}
+                      onChange={e => setPhone(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
+                      placeholder={fPhone.placeholder}
+                    />
+                  </div>
+                )}
+                {fCpf.enabled && (
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      {fCpf.label} {fCpf.required && <span className="text-red-500">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      required={fCpf.required}
+                      value={cpf}
+                      onChange={e => setCpf(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
+                      placeholder={fCpf.placeholder}
+                    />
+                  </div>
+                )}
+                {fRg.enabled && (
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      {fRg.label} {fRg.required && <span className="text-red-500">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      required={fRg.required}
+                      value={rg}
+                      onChange={e => setRg(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
+                      placeholder={fRg.placeholder}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Cidade</label>
-                  <input
-                    type="text"
-                    required
-                    value={city}
-                    onChange={e => setCity(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
-                    placeholder="São Paulo"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Estado (UF)</label>
-                  <input
-                    type="text"
-                    required
-                    maxLength={2}
-                    value={state}
-                    onChange={e => setState(e.target.value.toUpperCase())}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
-                    placeholder="SP"
-                  />
-                </div>
+                {fCity.enabled && (
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      {fCity.label} {fCity.required && <span className="text-red-500">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      required={fCity.required}
+                      value={city}
+                      onChange={e => setCity(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
+                      placeholder={fCity.placeholder}
+                    />
+                  </div>
+                )}
+                {fState.enabled && (
+                  <div>
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      {fState.label} {fState.required && <span className="text-red-500">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      required={fState.required}
+                      maxLength={2}
+                      value={state}
+                      onChange={e => setState(e.target.value.toUpperCase())}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
+                      placeholder={fState.placeholder}
+                    />
+                  </div>
+                )}
                 <div>
                   <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">CNH / Categoria</label>
                   <div className="flex gap-2">
-                    <input
-                      type="text"
-                      required
-                      value={cnh}
-                      onChange={e => setCnh(e.target.value)}
-                      className="w-2/3 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
-                      placeholder="Nº CNH"
-                    />
-                    <select
-                      value={cnhCategory}
-                      onChange={e => setCnhCategory(e.target.value)}
-                      className="w-1/3 px-2 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold"
-                    >
-                      <option value="B">B</option>
-                      <option value="C">C</option>
-                      <option value="D">D</option>
-                      <option value="E">E</option>
-                    </select>
+                    {fCnh.enabled && (
+                      <input
+                        type="text"
+                        required={fCnh.required}
+                        value={cnh}
+                        onChange={e => setCnh(e.target.value)}
+                        className="w-2/3 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
+                        placeholder={fCnh.placeholder}
+                      />
+                    )}
+                    {fCnhCategory.enabled && (
+                      <select
+                        value={cnhCategory}
+                        required={fCnhCategory.required}
+                        onChange={e => setCnhCategory(e.target.value)}
+                        className="w-1/3 px-2 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold"
+                      >
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="D">D</option>
+                        <option value="E">E</option>
+                      </select>
+                    )}
                   </div>
                 </div>
               </div>

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useSaaS } from '../../context/SaaSContext';
 import { RoleBadge } from '../common/Badge';
+import { ThemeToggle } from '../common/ThemeToggle';
 import { registerPushNotifications, testPushNotification } from '../../services/pushClient';
 import { 
   Truck, 
@@ -17,7 +19,8 @@ import {
   Menu,
   X,
   Radio,
-  Send
+  Send,
+  LogOut
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -33,7 +36,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenCreateFreight,
   onOpenRegisterDriver
 }) => {
-  const { user, tenant, driver, notifications, unreadCount, markNotificationAsRead, markAllNotificationsAsRead } = useAuth();
+  const { user, tenant, driver, notifications, unreadCount, markNotificationAsRead, markAllNotificationsAsRead, logout } = useAuth();
+  const { config } = useSaaS();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [pushStatus, setPushStatus] = useState<string | null>(null);
@@ -60,7 +64,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const isCompanyStaff = !isDriver && !isSuperAdmin;
 
   return (
-    <header className="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-xs">
+    <header id="navbar-main-container" className="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           
@@ -74,8 +78,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <Truck className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-base font-bold tracking-tight text-slate-900 dark:text-white block leading-tight">
-                  FreteFácil <span className="text-emerald-600 dark:text-emerald-400 font-extrabold">SaaS</span>
+                <span className="text-base font-black tracking-tight text-slate-900 dark:text-white block leading-tight uppercase">
+                  {config?.layout?.logoText || config?.systemName || 'ELO LOG'} <span className="text-emerald-600 dark:text-emerald-400 font-extrabold text-[10px] bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded ml-1 border border-emerald-200/50 dark:border-emerald-800/50">SaaS</span>
                 </span>
                 <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block truncate max-w-[200px] sm:max-w-xs">
                   {isSuperAdmin ? '🌐 Painel Global Multi-Tenant' : (tenant?.name || 'Portal de Fretes')}
@@ -107,6 +111,79 @@ export const Navbar: React.FC<NavbarProps> = ({
                   }`}
                 >
                   👤 Meu Perfil & Veículos
+                </button>
+              </>
+            ) : isSuperAdmin ? (
+              <>
+                <button
+                  onClick={() => setActiveTab('saas-tenants')}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
+                    activeTab === 'saas-tenants'
+                      ? 'bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300'
+                      : 'text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40'
+                  }`}
+                >
+                  👑 Empresas SaaS
+                </button>
+                <button
+                  onClick={() => setActiveTab('saas-config')}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
+                    activeTab === 'saas-config'
+                      ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300'
+                      : 'text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
+                  }`}
+                >
+                  ⚙️ Configurações SaaS
+                </button>
+                <button
+                  onClick={() => setActiveTab('freights')}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                    activeTab === 'freights'
+                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  Fretes
+                </button>
+                <button
+                  onClick={() => setActiveTab('drivers')}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                    activeTab === 'drivers'
+                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  Motoristas
+                </button>
+                <button
+                  onClick={() => setActiveTab('forms')}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                    activeTab === 'forms'
+                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  Formulários & Checklists
+                </button>
+                <button
+                  onClick={() => setActiveTab('users')}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                    activeTab === 'users'
+                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  Usuários
+                </button>
+                <button
+                  onClick={() => setActiveTab('audit')}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                    activeTab === 'audit'
+                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  Auditoria
                 </button>
               </>
             ) : (
@@ -161,19 +238,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 >
                   Auditoria
                 </button>
-
-                {isSuperAdmin && (
-                  <button
-                    onClick={() => setActiveTab('saas-tenants')}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
-                      activeTab === 'saas-tenants'
-                        ? 'bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300'
-                        : 'text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40'
-                    }`}
-                  >
-                    👑 Empresas SaaS
-                  </button>
-                )}
               </>
             )}
           </nav>
@@ -181,8 +245,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Right Action Area */}
           <div className="flex items-center gap-2.5">
             
-            {/* Quick Action Button for Company */}
-            {isCompanyStaff && onOpenCreateFreight && (
+            {/* Quick Action Button for Company & Super Admin */}
+            {(isCompanyStaff || isSuperAdmin) && onOpenCreateFreight && (
               <button
                 id="btn-navbar-new-freight"
                 onClick={onOpenCreateFreight}
@@ -191,6 +255,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>+ Novo Frete</span>
               </button>
             )}
+
+            {/* Theme Toggle */}
+            <ThemeToggle />
 
             {/* Notification Bell with Dropdown */}
             <div className="relative">
@@ -315,6 +382,17 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             </div>
 
+            {/* Logout button */}
+            <button
+              onClick={() => {
+                logout();
+              }}
+              className="p-2 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              title="Sair do Sistema"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+
             {/* Mobile menu button */}
             <button
               onClick={() => setShowMobileMenu(!showMobileMenu)}
@@ -343,6 +421,51 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="w-full text-left px-3 py-2 rounded-md text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 👤 Meu Perfil & Veículos
+              </button>
+            </>
+          ) : isSuperAdmin ? (
+            <>
+              <button
+                onClick={() => { setActiveTab('saas-tenants'); setShowMobileMenu(false); }}
+                className="w-full text-left px-3 py-2 rounded-md text-sm font-bold text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950"
+              >
+                👑 Gestão de Empresas SaaS
+              </button>
+              <button
+                onClick={() => { setActiveTab('saas-config'); setShowMobileMenu(false); }}
+                className="w-full text-left px-3 py-2 rounded-md text-sm font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950"
+              >
+                ⚙️ Configurações SaaS
+              </button>
+              <button
+                onClick={() => { setActiveTab('freights'); setShowMobileMenu(false); }}
+                className="w-full text-left px-3 py-2 rounded-md text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                📦 Fretes
+              </button>
+              <button
+                onClick={() => { setActiveTab('drivers'); setShowMobileMenu(false); }}
+                className="w-full text-left px-3 py-2 rounded-md text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                🚛 Motoristas
+              </button>
+              <button
+                onClick={() => { setActiveTab('forms'); setShowMobileMenu(false); }}
+                className="w-full text-left px-3 py-2 rounded-md text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                📝 Formulários & Checklists
+              </button>
+              <button
+                onClick={() => { setActiveTab('users'); setShowMobileMenu(false); }}
+                className="w-full text-left px-3 py-2 rounded-md text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                👥 Usuários do Sistema
+              </button>
+              <button
+                onClick={() => { setActiveTab('audit'); setShowMobileMenu(false); }}
+                className="w-full text-left px-3 py-2 rounded-md text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                🛡️ Logs de Auditoria
               </button>
             </>
           ) : (
@@ -377,16 +500,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 🛡️ Logs de Auditoria
               </button>
-              {isSuperAdmin && (
-                <button
-                  onClick={() => { setActiveTab('saas-tenants'); setShowMobileMenu(false); }}
-                  className="w-full text-left px-3 py-2 rounded-md text-sm font-bold text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950"
-                >
-                  👑 Gestão de Empresas SaaS
-                </button>
-              )}
             </>
           )}
+          <button
+            onClick={() => { logout(); setShowMobileMenu(false); }}
+            className="w-full text-left px-3 py-2 rounded-md text-sm font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950"
+          >
+            🚪 Sair do Sistema
+          </button>
         </div>
       )}
     </header>

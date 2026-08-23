@@ -135,7 +135,7 @@ apiRouter.get('/auth/me', (req: AuthenticatedRequest, res: Response) => {
 
 // Login endpoint
 apiRouter.post('/auth/login', (req: AuthenticatedRequest, res: Response) => {
-  const { email, role } = req.body;
+  const { email, role, password } = req.body;
   
   let targetUser = db.users.find(u => u.email.toLowerCase() === (email || '').toLowerCase());
   
@@ -145,6 +145,16 @@ apiRouter.post('/auth/login', (req: AuthenticatedRequest, res: Response) => {
 
   if (!targetUser) {
     return res.status(404).json({ error: 'Usuário não encontrado' });
+  }
+
+  // Check if pending approval
+  if (targetUser.status === 'PENDENTE') {
+    return res.status(403).json({ error: 'Seu cadastro foi realizado com sucesso, mas ainda não foi liberado. Aguarde a aprovação do Super Administrador.' });
+  }
+
+  // Validate password if present on the user (and it's not a demo switcher shortcut without password)
+  if (targetUser.password && password && targetUser.password !== password) {
+    return res.status(401).json({ error: 'Senha incorreta.' });
   }
 
   targetUser.lastLoginAt = new Date().toISOString();
@@ -164,6 +174,289 @@ apiRouter.post('/auth/login', (req: AuthenticatedRequest, res: Response) => {
   res.json({
     user: targetUser,
     token: targetUser.id
+  });
+});
+
+// Active WhatsApp Login OTPs Map
+const activeOTPs = new Map<string, { code: string; expiresAt: number }>();
+
+// Pending registration OTPs Map
+const pendingRegistrations = new Map<string, {
+  code: string;
+  expiresAt: number;
+  companyName: string;
+  cnpj: string;
+  responsibleName: string;
+  email: string;
+  phone: string;
+  password?: string;
+}>();
+
+// Request WhatsApp OTP for Login
+apiRouter.post('/auth/request-otp', async (req: AuthenticatedRequest, res: Response) => {
+  const { phone } = req.body;
+  if (!phone) {
+    return res.status(400).json({ error: 'Telefone é obrigatório' });
+  }
+
+  // Clean phone string to match digits
+  const cleanPhone = phone.replace(/\D/g, '');
+  const targetUser = db.users.find(u => {
+    const cleanUserPhone = u.phone.replace(/\D/g, '');
+    return cleanUserPhone.endsWith(cleanPhone) || cleanPhone.endsWith(cleanUserPhone);
+  });
+
+  if (!targetUser) {
+    return res.status(404).json({ error: 'Nenhum usuário cadastrado com este telefone.' });
+  }
+
+  if (targetUser.status === 'PENDENTE') {
+    return res.status(403).json({ error: 'Cadastro pendente de aprovação pelo Super Administrador.' });
+  }
+
+  // Generate 6-digit code
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
+
+  activeOTPs.set(cleanPhone, { code, expiresAt });
+
+  const tenantId = targetUser.tenantId || 'tenant-translog-01';
+  const config = db.whatsappConfigs.get(tenantId) || db.globalWhatsAppConfig;
+  const messageBody = `🚚 [ELO LOG] Seu código de acesso para login via WhatsApp é: *${code}*. Válido por 5 minutos. Não compartilhe com ninguém.`;
+
+  // Send via WhatsApp API Gateway
+  const waResult = await sendToWhatsAppGateway(config, {
+    number: cleanPhone,
+    body: messageBody,
+    externalKey: `otp-${Date.now()}`
+  });
+
+  db.addAuditLog({
+    tenantId: targetUser.tenantId || undefined,
+    userId: targetUser.id,
+    userName: targetUser.name,
+    userRole: targetUser.role,
+    action: 'OTP_REQUEST',
+    entity: 'User',
+    entityId: targetUser.id,
+    details: `Código OTP enviado via WhatsApp API para o telefone ${phone} [${waResult.success ? 'SUCESSO' : 'FALHA'}]`
+  });
+
+  res.json({
+    success: true,
+    message: `Código de login enviado com sucesso via WhatsApp para ${phone}!`
+  });
+});
+
+// Verify WhatsApp OTP for Login
+apiRouter.post('/auth/verify-otp', (req: AuthenticatedRequest, res: Response) => {
+  const { phone, code } = req.body;
+  if (!phone || !code) {
+    return res.status(400).json({ error: 'Telefone e código são obrigatórios.' });
+  }
+
+  const cleanPhone = phone.replace(/\D/g, '');
+  const activeOtp = activeOTPs.get(cleanPhone);
+
+  if (!activeOtp) {
+    return res.status(400).json({ error: 'Nenhum código ativo encontrado para este telefone. Solicite um novo código.' });
+  }
+
+  if (Date.now() > activeOtp.expiresAt) {
+    activeOTPs.delete(cleanPhone);
+    return res.status(400).json({ error: 'Código de verificação expirou (validade de 5 minutos).' });
+  }
+
+  if (activeOtp.code !== code) {
+    return res.status(400).json({ error: 'Código de verificação inválido.' });
+  }
+
+  // Successful verification
+  activeOTPs.delete(cleanPhone);
+
+  const targetUser = db.users.find(u => {
+    const cleanUserPhone = u.phone.replace(/\D/g, '');
+    return cleanUserPhone.endsWith(cleanPhone) || cleanPhone.endsWith(cleanUserPhone);
+  });
+
+  if (!targetUser) {
+    return res.status(404).json({ error: 'Usuário não encontrado.' });
+  }
+
+  targetUser.lastLoginAt = new Date().toISOString();
+
+  db.addAuditLog({
+    tenantId: targetUser.tenantId || undefined,
+    userId: targetUser.id,
+    userName: targetUser.name,
+    userRole: targetUser.role,
+    action: 'LOGIN',
+    entity: 'User',
+    entityId: targetUser.id,
+    details: `Login realizado com sucesso via WhatsApp OTP`
+  });
+
+  res.json({
+    user: targetUser,
+    token: targetUser.id
+  });
+});
+
+// Register Company (Tenant + Admin User in PENDENTE state)
+apiRouter.post('/auth/register-company', (req: AuthenticatedRequest, res: Response) => {
+  const { companyName, cnpj, responsibleName, email, phone, password } = req.body;
+
+  if (!companyName || !cnpj || !responsibleName || !email || !phone || !password) {
+    return res.status(400).json({ error: 'Preencha todos os campos obrigatórios.' });
+  }
+
+  // Check if email already registered
+  const emailExists = db.users.some(u => u.email.toLowerCase() === email.toLowerCase());
+  if (emailExists) {
+    return res.status(400).json({ error: 'Este e-mail já está sendo utilizado por outra conta.' });
+  }
+
+  // Check if CNPJ already registered
+  const cnpjExists = db.tenants.some(t => t.cnpj === cnpj);
+  if (cnpjExists) {
+    return res.status(400).json({ error: 'Este CNPJ já está cadastrado no sistema.' });
+  }
+
+  // Generate verification code
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes
+
+  const key = email.toLowerCase();
+  pendingRegistrations.set(key, {
+    code,
+    expiresAt,
+    companyName,
+    cnpj,
+    responsibleName,
+    email,
+    phone,
+    password
+  });
+
+  // Simulation: write simulated SMS/WhatsApp and email into global notification store
+  db.addNotification({
+    tenantId: null,
+    title: '📧 Verificação de E-mail',
+    message: `Enviado para ${email}: Olá ${responsibleName}, use o código ${code} para verificar seu cadastro na Elo Log.`,
+    type: 'SISTEMA',
+    userId: 'user-superadmin'
+  });
+
+  db.addNotification({
+    tenantId: null,
+    title: '💬 Verificação de WhatsApp',
+    message: `Enviado para ${phone}: Olá ${responsibleName}, use o código ${code} para confirmar seu cadastro na Elo Log.`,
+    type: 'SISTEMA',
+    userId: 'user-superadmin'
+  });
+
+  res.json({
+    success: true,
+    message: 'Código de verificação enviado para o e-mail e WhatsApp do responsável!',
+    demoCode: code
+  });
+});
+
+// Verify Registration Code and complete creation in PENDENTE state
+apiRouter.post('/auth/verify-registration', (req: AuthenticatedRequest, res: Response) => {
+  const { email, code } = req.body;
+  if (!email || !code) {
+    return res.status(400).json({ error: 'E-mail e código de verificação são obrigatórios.' });
+  }
+
+  const key = email.toLowerCase();
+  const pending = pendingRegistrations.get(key);
+
+  if (!pending) {
+    return res.status(404).json({ error: 'Nenhum cadastro pendente encontrado para este e-mail.' });
+  }
+
+  if (Date.now() > pending.expiresAt) {
+    pendingRegistrations.delete(key);
+    return res.status(400).json({ error: 'O código de verificação expirou. Faça o cadastro novamente.' });
+  }
+
+  if (pending.code !== code) {
+    return res.status(400).json({ error: 'Código de verificação incorreto.' });
+  }
+
+  // Success! Create actual database structures in PENDENTE state
+  const tenantId = `tenant-${Date.now()}`;
+  const userId = `user-${Date.now()}`;
+  const now = new Date().toISOString();
+
+  const newTenant: Tenant = {
+    id: tenantId,
+    name: pending.companyName,
+    legalName: pending.companyName,
+    cnpj: pending.cnpj,
+    email: pending.email,
+    phone: pending.phone,
+    zipCode: '01000-000',
+    address: 'Av. Industrial',
+    number: '123',
+    neighborhood: 'Distrito Industrial',
+    city: 'São Paulo',
+    state: 'SP',
+    status: 'PENDENTE', // Crucial: Starts as PENDENTE
+    plan: 'BASICO',
+    planLimits: {
+      maxUsers: 5,
+      maxDrivers: 20,
+      maxFreightsMonthly: 50,
+      customForms: false,
+      exportReports: true,
+      prioritySupport: false
+    },
+    createdAt: now,
+    updatedAt: now
+  };
+
+  const newUser: User = {
+    id: userId,
+    tenantId: tenantId,
+    name: pending.responsibleName,
+    email: pending.email,
+    phone: pending.phone,
+    role: 'EMPRESA_SUPER_ADMIN', // Owner of the tenant
+    status: 'PENDENTE', // Crucial: Starts as PENDENTE
+    password: pending.password,
+    createdAt: now
+  };
+
+  db.tenants.push(newTenant);
+  db.users.push(newUser);
+
+  // Generate Super Admin Alert
+  db.addNotification({
+    tenantId: null,
+    title: '🏢 Novo Cadastro de Empresa',
+    message: `A empresa "${pending.companyName}" se cadastrou e aguarda sua aprovação no Painel Global.`,
+    type: 'SISTEMA',
+    userId: 'user-superadmin'
+  });
+
+  db.addAuditLog({
+    tenantId,
+    userId,
+    userName: pending.responsibleName,
+    userRole: 'EMPRESA_SUPER_ADMIN',
+    action: 'REGISTRO_EMPRESA',
+    entity: 'Tenant',
+    entityId: tenantId,
+    details: `Empresa ${pending.companyName} cadastrada e verificada por código. Aguardando aprovação do Super Admin.`
+  });
+
+  pendingRegistrations.delete(key);
+
+  res.json({
+    success: true,
+    message: 'Cadastro realizado com sucesso! Suas informações foram verificadas. Aguarde a liberação do Super Administrador para acessar a plataforma.'
   });
 });
 
@@ -375,7 +668,17 @@ apiRouter.put('/tenants/:id', (req: AuthenticatedRequest, res: Response) => {
       prioritySupport: plan === 'EMPRESARIAL'
     };
   }
-  if (status) tenant.status = status;
+  if (status) {
+    tenant.status = status;
+    // Auto-approve associated users when the tenant/company is approved
+    if (status === 'ATIVA') {
+      db.users.forEach(u => {
+        if (u.tenantId === tenant.id && u.status === 'PENDENTE') {
+          u.status = 'ATIVO';
+        }
+      });
+    }
+  }
   tenant.updatedAt = new Date().toISOString();
 
   db.addAuditLog({
@@ -483,6 +786,11 @@ apiRouter.get('/drivers', (req: AuthenticatedRequest, res: Response) => {
 apiRouter.put('/drivers/:id', (req: AuthenticatedRequest, res: Response) => {
   const driver = db.drivers.find(d => d.id === req.params.id);
   if (!driver) return res.status(404).json({ error: 'Motorista não encontrado' });
+
+  // Security check: ensure tenant matches
+  if (req.user?.role !== 'SUPER_ADMIN' && driver.tenantId !== req.user?.tenantId) {
+    return res.status(403).json({ error: 'Acesso não autorizado. Este motorista pertence a outra empresa.' });
+  }
 
   const { name, phone, cpf, rg, birthDate, zipCode, address, city, state, cnh, cnhCategory, cnhExpiresAt, status } = req.body;
   if (name) driver.name = name;
@@ -737,6 +1045,11 @@ apiRouter.put('/freights/:id', (req: AuthenticatedRequest, res: Response) => {
   const freight = db.freights.find(f => f.id === req.params.id);
   if (!freight) return res.status(404).json({ error: 'Frete não encontrado' });
 
+  // Security check: ensure tenant matches
+  if (req.user?.role !== 'SUPER_ADMIN' && freight.tenantId !== req.user?.tenantId) {
+    return res.status(403).json({ error: 'Acesso não autorizado. Este frete pertence a outra empresa.' });
+  }
+
   if (['RESERVADO', 'EM_COLETA', 'COLETADO', 'EM_TRANSITO', 'ENTREGUE', 'FINALIZADO'].includes(freight.status)) {
     return res.status(400).json({ error: 'Não é possível editar frete que já foi reservado ou iniciado' });
   }
@@ -886,6 +1199,17 @@ apiRouter.post('/freights/:id/status', (req: AuthenticatedRequest, res: Response
     return res.status(404).json({ error: 'Frete não encontrado' });
   }
 
+  // Security check: ensure authorized to update status (driver assigned or same company tenant)
+  if (req.user?.role !== 'SUPER_ADMIN') {
+    if (req.user?.role === 'MOTORISTA') {
+      if (freight.assignedDriverId !== req.user.driverId) {
+        return res.status(403).json({ error: 'Acesso não autorizado. Este frete não está atribuído a você.' });
+      }
+    } else if (freight.tenantId !== req.user?.tenantId) {
+      return res.status(403).json({ error: 'Acesso não autorizado a este frete.' });
+    }
+  }
+
   const currentStatus = freight.status;
   const allowedTransitions = VALID_STATUS_TRANSITIONS[currentStatus] || [];
 
@@ -1018,6 +1342,22 @@ apiRouter.post('/forms/responses', (req: AuthenticatedRequest, res: Response) =>
 
   if (!form) {
     return res.status(404).json({ error: 'Formulário não encontrado' });
+  }
+
+  // Security check: ensure associated freight belongs to user's tenant or assigned driver
+  if (freightId) {
+    const freight = db.freights.find(f => f.id === freightId);
+    if (freight) {
+      if (req.user?.role !== 'SUPER_ADMIN') {
+        if (req.user?.role === 'MOTORISTA') {
+          if (freight.assignedDriverId !== req.user.driverId) {
+            return res.status(403).json({ error: 'Acesso não autorizado. Este frete não está atribuído a você.' });
+          }
+        } else if (freight.tenantId !== req.user?.tenantId) {
+          return res.status(403).json({ error: 'Acesso não autorizado a este frete.' });
+        }
+      }
+    }
   }
 
   // Check if updating an existing response by ID or by freightId + formId
@@ -1218,6 +1558,10 @@ async function sendToWhatsAppGateway(config: WhatsAppConfig, payload: {
 
 // 1. Get WhatsApp Gateway Configuration
 apiRouter.get('/integrations/whatsapp/config', (req: AuthenticatedRequest, res: Response) => {
+  if (req.user?.role !== 'SUPER_ADMIN') {
+    return res.status(403).json({ error: 'Permissão exclusiva do Super Admin do Elo Log.' });
+  }
+
   const tenantId = req.user?.tenantId || 'tenant-translog-01';
   let config = db.whatsappConfigs.get(tenantId) || db.globalWhatsAppConfig;
 
@@ -1232,8 +1576,8 @@ apiRouter.get('/integrations/whatsapp/config', (req: AuthenticatedRequest, res: 
 
 // 2. Save / Update WhatsApp Gateway Configuration
 apiRouter.post('/integrations/whatsapp/config', (req: AuthenticatedRequest, res: Response) => {
-  if (req.user?.role !== 'SUPER_ADMIN' && req.user?.role !== 'ADMIN' && req.user?.role !== 'SUPERVISOR') {
-    return res.status(403).json({ error: 'Permissão insuficiente para alterar configurações do Gateway WhatsApp.' });
+  if (req.user?.role !== 'SUPER_ADMIN') {
+    return res.status(403).json({ error: 'Permissão exclusiva do Super Admin do Elo Log.' });
   }
 
   const { baseUrl, token, defaultChannelNumber, isActive, autoNotifyChecklist, autoNotifyFreightStatus } = req.body;
@@ -1274,6 +1618,10 @@ apiRouter.post('/integrations/whatsapp/config', (req: AuthenticatedRequest, res:
 
 // 3. Test WhatsApp Gateway Connection
 apiRouter.post('/integrations/whatsapp/test', async (req: AuthenticatedRequest, res: Response) => {
+  if (req.user?.role !== 'SUPER_ADMIN') {
+    return res.status(403).json({ error: 'Permissão exclusiva do Super Admin do Elo Log.' });
+  }
+
   const { phone, message, baseUrl, token } = req.body;
   const tenantId = req.user?.tenantId || 'tenant-translog-01';
   const savedConfig = db.whatsappConfigs.get(tenantId) || db.globalWhatsAppConfig;
@@ -1469,6 +1817,12 @@ apiRouter.delete('/freights/:id', (req: AuthenticatedRequest, res: Response) => 
   const index = db.freights.findIndex(f => f.id === req.params.id);
   if (index === -1) return res.status(404).json({ error: 'Frete não encontrado' });
   const freight = db.freights[index];
+
+  // Security check: ensure tenant matches
+  if (req.user?.role !== 'SUPER_ADMIN' && freight.tenantId !== req.user?.tenantId) {
+    return res.status(403).json({ error: 'Acesso não autorizado. Este frete pertence a outra empresa.' });
+  }
+
   db.freights.splice(index, 1);
 
   db.addAuditLog({
@@ -1489,6 +1843,12 @@ apiRouter.delete('/drivers/:id', (req: AuthenticatedRequest, res: Response) => {
   const index = db.drivers.findIndex(d => d.id === req.params.id);
   if (index === -1) return res.status(404).json({ error: 'Motorista não encontrado' });
   const driver = db.drivers[index];
+
+  // Security check: ensure tenant matches
+  if (req.user?.role !== 'SUPER_ADMIN' && driver.tenantId !== req.user?.tenantId) {
+    return res.status(403).json({ error: 'Acesso não autorizado. Este motorista pertence a outra empresa.' });
+  }
+
   db.drivers.splice(index, 1);
 
   db.vehicles = db.vehicles.filter(v => v.driverId !== driver.id);
@@ -1512,6 +1872,11 @@ apiRouter.delete('/users/:id', (req: AuthenticatedRequest, res: Response) => {
   const index = db.users.findIndex(u => u.id === req.params.id);
   if (index === -1) return res.status(404).json({ error: 'Usuário não encontrado' });
   const targetUser = db.users[index];
+
+  // Security check: ensure tenant matches
+  if (req.user?.role !== 'SUPER_ADMIN' && targetUser.tenantId !== req.user?.tenantId) {
+    return res.status(403).json({ error: 'Acesso não autorizado. Este usuário pertence a outra empresa.' });
+  }
   
   if (targetUser.id === req.user?.id) {
     return res.status(400).json({ error: 'Você não pode excluir seu próprio usuário' });
@@ -1537,6 +1902,12 @@ apiRouter.delete('/forms/:id', (req: AuthenticatedRequest, res: Response) => {
   const index = db.forms.findIndex(f => f.id === req.params.id);
   if (index === -1) return res.status(404).json({ error: 'Formulário não encontrado' });
   const form = db.forms[index];
+
+  // Security check: ensure tenant matches
+  if (req.user?.role !== 'SUPER_ADMIN' && form.tenantId !== req.user?.tenantId) {
+    return res.status(403).json({ error: 'Acesso não autorizado. Este formulário pertence a outra empresa.' });
+  }
+
   db.forms.splice(index, 1);
 
   db.addAuditLog({
@@ -1557,6 +1928,12 @@ apiRouter.delete('/vehicles/:id', (req: AuthenticatedRequest, res: Response) => 
   const index = db.vehicles.findIndex(v => v.id === req.params.id);
   if (index === -1) return res.status(404).json({ error: 'Veículo não encontrado' });
   const vehicle = db.vehicles[index];
+
+  // Security check: ensure tenant matches
+  if (req.user?.role !== 'SUPER_ADMIN' && vehicle.tenantId !== req.user?.tenantId) {
+    return res.status(403).json({ error: 'Acesso não autorizado. Este veículo pertence a outra empresa.' });
+  }
+
   db.vehicles.splice(index, 1);
 
   db.addAuditLog({
@@ -1614,5 +1991,40 @@ apiRouter.post('/push/test', async (req: AuthenticatedRequest, res: Response) =>
     res.status(500).json({ error: err.message || 'Erro ao enviar notificação de teste' });
   }
 });
+
+// SaaS Global Configuration Endpoints
+apiRouter.get('/saas/config', (req: AuthenticatedRequest, res: Response) => {
+  res.json(db.saasGlobalConfig);
+});
+
+apiRouter.post('/saas/config', (req: AuthenticatedRequest, res: Response) => {
+  if (req.user?.role !== 'SUPER_ADMIN') {
+    return res.status(403).json({ error: 'Permissão insuficiente para alterar configurações globais do SaaS.' });
+  }
+
+  const newConfig = req.body;
+  if (!newConfig) {
+    return res.status(400).json({ error: 'Configuração inválida.' });
+  }
+
+  db.saasGlobalConfig = {
+    ...db.saasGlobalConfig,
+    ...newConfig
+  };
+
+  db.addAuditLog({
+    tenantId: undefined,
+    userId: req.user!.id,
+    userName: req.user!.name,
+    userRole: req.user!.role,
+    action: 'CONFIG_SAAS',
+    entity: 'SaaSConfig',
+    entityId: 'global-saas-config',
+    details: `Atualizou configurações globais do SaaS (Nome: ${db.saasGlobalConfig.systemName})`
+  });
+
+  res.json({ success: true, config: db.saasGlobalConfig });
+});
+
 
 

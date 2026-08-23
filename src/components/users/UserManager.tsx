@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { User, UserRole } from '../../types';
 import { api } from '../../services/api';
+import { useSaaS } from '../../context/SaaSContext';
 import { RoleBadge } from '../common/Badge';
 import { Shield, Plus, Mail, UserCheck, Trash2, X, Check } from 'lucide-react';
 
 export const UserManager: React.FC = () => {
+  const { getField } = useSaaS();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
@@ -14,6 +16,11 @@ export const UserManager: React.FC = () => {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<UserRole>('ADMIN');
+
+  const fName = getField('userForm', 'name') || { label: 'Nome Completo', placeholder: 'Ex: Carlos Oliveira', enabled: true, required: true };
+  const fEmail = getField('userForm', 'email') || { label: 'E-mail Corporativo', placeholder: 'carlos@translog.com.br', enabled: true, required: true };
+  const fPhone = getField('userForm', 'phone') || { label: 'Telefone / WhatsApp', placeholder: '(11) 98765-4321', enabled: true, required: true };
+  const fRole = getField('userForm', 'role') || { label: 'Nível de Permissão (Role)', placeholder: '', enabled: true, required: true };
 
   useEffect(() => {
     const load = async () => {
@@ -151,54 +158,72 @@ export const UserManager: React.FC = () => {
             </div>
 
             <form onSubmit={handleCreateUser} className="space-y-4">
-              <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Nome Completo</label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
-                  placeholder="Ex: Carlos Oliveira"
-                />
-              </div>
+              {fName.enabled && (
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    {fName.label} {fName.required && <span className="text-red-500">*</span>}
+                  </label>
+                  <input
+                    type="text"
+                    required={fName.required}
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
+                    placeholder={fName.placeholder}
+                  />
+                </div>
+              )}
 
-              <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">E-mail Corporativo</label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
-                  placeholder="carlos@translog.com.br"
-                />
-              </div>
+              {fEmail.enabled && (
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    {fEmail.label} {fEmail.required && <span className="text-red-500">*</span>}
+                  </label>
+                  <input
+                    type="email"
+                    required={fEmail.required}
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
+                    placeholder={fEmail.placeholder}
+                  />
+                </div>
+              )}
 
-              <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Telefone / WhatsApp</label>
-                <input
-                  type="text"
-                  value={phone}
-                  onChange={e => setPhone(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
-                  placeholder="(11) 98765-4321"
-                />
-              </div>
+              {fPhone.enabled && (
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    {fPhone.label} {fPhone.required && <span className="text-red-500">*</span>}
+                  </label>
+                  <input
+                    type="text"
+                    required={fPhone.required}
+                    value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
+                    placeholder={fPhone.placeholder}
+                  />
+                </div>
+              )}
 
-              <div>
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Nível de Permissão (Role)</label>
-                <select
-                  value={role}
-                  onChange={e => setRole(e.target.value as UserRole)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold"
-                >
-                  <option value="ADMIN">Administrador da Transportadora</option>
-                  <option value="SUPERVISOR">Supervisor Operacional</option>
-                  <option value="USUARIO">Operador / Usuário Padrão</option>
-                  <option value="SUPER_ADMIN">Super Administrador SaaS</option>
-                </select>
-              </div>
+              {fRole.enabled && (
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    {fRole.label} {fRole.required && <span className="text-red-500">*</span>}
+                  </label>
+                  <select
+                    value={role}
+                    required={fRole.required}
+                    onChange={e => setRole(e.target.value as UserRole)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold"
+                  >
+                    <option value="ADMIN">Administrador da Transportadora</option>
+                    <option value="SUPERVISOR">Supervisor Operacional</option>
+                    <option value="USUARIO">Operador / Usuário Padrão</option>
+                    <option value="SUPER_ADMIN">Super Administrador SaaS</option>
+                  </select>
+                </div>
+              )}
 
               <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-3">
                 <button

@@ -11,7 +11,8 @@ import {
   AuditLog, 
   DashboardStats,
   WhatsAppConfig,
-  WhatsAppNotificationPayload
+  WhatsAppNotificationPayload,
+  SaaSGlobalConfig
 } from '../types';
 
 let currentToken: string = 'user-admin-1';
@@ -26,6 +27,44 @@ export const getAuthToken = (): string => {
     currentToken = localStorage.getItem('frete_auth_token') || 'user-admin-1';
   }
   return currentToken;
+};
+
+export interface OfflineResponse {
+  id: string;
+  formId: string;
+  freightId?: string;
+  responseId?: string;
+  stage?: 'RETIRADA_INICIADA' | 'FINALIZADO_ENTREGA' | 'COMPLETO';
+  isDraft?: boolean;
+  answers: Record<string, any>;
+  createdAt: string;
+}
+
+// Get items pending offline sync from local storage
+export const getOfflineQueue = (): OfflineResponse[] => {
+  try {
+    return JSON.parse(localStorage.getItem('elolog_offline_queue') || '[]');
+  } catch {
+    return [];
+  }
+};
+
+// Save items pending offline sync to local storage
+export const saveOfflineQueue = (queue: OfflineResponse[]) => {
+  localStorage.setItem('elolog_offline_queue', JSON.stringify(queue));
+};
+
+// Check if we are simulated offline or genuinely offline
+export const isOfflineMode = (): boolean => {
+  const simulated = localStorage.getItem('elolog_simulate_offline') === 'true';
+  const realOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+  return simulated || realOffline;
+};
+
+// Toggle offline simulation mode
+export const setSimulatedOffline = (offline: boolean) => {
+  localStorage.setItem('elolog_simulate_offline', offline ? 'true' : 'false');
+  window.dispatchEvent(new Event('elolog_offline_queue_changed'));
 };
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -61,10 +100,45 @@ export const api = {
     }>('/auth/me');
   },
 
-  async login(email: string, role?: string) {
+  async login(email: string, role?: string, password?: string) {
     return request<{ user: User; token: string }>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, role })
+      body: JSON.stringify({ email, role, password })
+    });
+  },
+
+  async requestOtp(phone: string) {
+    return request<{ success: boolean; message: string; demoCode?: string }>('/auth/request-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phone })
+    });
+  },
+
+  async verifyOtp(phone: string, code: string) {
+    return request<{ user: User; token: string }>('/auth/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phone, code })
+    });
+  },
+
+  async registerCompany(data: {
+    companyName: string;
+    cnpj: string;
+    responsibleName: string;
+    email: string;
+    phone: string;
+    password?: string;
+  }) {
+    return request<{ success: boolean; message: string; demoCode?: string }>('/auth/register-company', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async verifyRegistration(email: string, code: string) {
+    return request<{ success: boolean; message: string }>('/auth/verify-registration', {
+      method: 'POST',
+      body: JSON.stringify({ email, code })
     });
   },
 
@@ -199,10 +273,82 @@ export const api = {
     isDraft?: boolean;
     answers: Record<string, any>;
   }) {
+    if (isOfflineMode()) {
+      const offlineId = `offline-${Date.now()}`;
+      const mockResponse: FormResponse = {
+        id: data.responseId || offlineId,
+        formId: data.formId,
+        formTitle: 'Vistoria',
+        tenantId: 'offline',
+        freightId: data.freightId || undefined,
+        driverId: 'offline',
+        filledByUserId: 'offline',
+        filledByName: 'Motorista',
+        stage: data.stage || 'COMPLETO',
+        isDraft: data.isDraft || false,
+        answers: data.answers,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      // Add to local storage offline queue
+      const queue = getOfflineQueue();
+      // Remove duplicate pending response for same freight and form to avoid duplicates
+      const filtered = queue.filter(q => !(q.formId === data.formId && q.freightId === data.freightId));
+      filtered.push({
+        id: mockResponse.id,
+        formId: data.formId,
+        freightId: data.freightId,
+        responseId: data.responseId,
+        stage: data.stage,
+        isDraft: data.isDraft,
+        answers: data.answers,
+        createdAt: new Date().toISOString()
+      });
+      saveOfflineQueue(filtered);
+
+      // Trigger a custom event to notify components that the queue changed
+      window.dispatchEvent(new Event('elolog_offline_queue_changed'));
+
+      return mockResponse;
+    }
+
     return request<FormResponse>('/forms/responses', {
       method: 'POST',
       body: JSON.stringify(data)
     });
+  },
+
+  async syncOfflineQueue(): Promise<{ success: boolean; syncedCount: number }> {
+    const queue = getOfflineQueue();
+    if (queue.length === 0) return { success: true, syncedCount: 0 };
+
+    let syncedCount = 0;
+    const remainingQueue: OfflineResponse[] = [];
+
+    for (const item of queue) {
+      try {
+        await request<FormResponse>('/forms/responses', {
+          method: 'POST',
+          body: JSON.stringify({
+            formId: item.formId,
+            freightId: item.freightId,
+            responseId: item.responseId?.startsWith('offline-') ? undefined : item.responseId,
+            stage: item.stage,
+            isDraft: item.isDraft,
+            answers: item.answers
+          })
+        });
+        syncedCount++;
+      } catch (err) {
+        console.error('Falha ao sincronizar item offline:', item, err);
+        remainingQueue.push(item);
+      }
+    }
+
+    saveOfflineQueue(remainingQueue);
+    window.dispatchEvent(new Event('elolog_offline_queue_changed'));
+    return { success: remainingQueue.length === 0, syncedCount };
   },
 
   async sendWhatsAppNotification(data: WhatsAppNotificationPayload) {
@@ -285,5 +431,17 @@ export const api = {
   },
   async deleteVehicle(id: string) {
     return request<{ success: boolean; message: string }>(`/vehicles/${id}`, { method: 'DELETE' });
+  },
+
+  // SaaS Global Configurations
+  async getSaaSGlobalConfig() {
+    return request<SaaSGlobalConfig>('/saas/config');
+  },
+
+  async updateSaaSGlobalConfig(data: Partial<SaaSGlobalConfig>) {
+    return request<{ success: boolean; config: SaaSGlobalConfig }>('/saas/config', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
   }
 };

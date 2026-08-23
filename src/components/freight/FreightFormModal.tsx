@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
+import { useSaaS } from '../../context/SaaSContext';
 import { VehicleType, CargoType, PaymentMethod, BodyType, Freight } from '../../types';
 import { Truck, MapPin, DollarSign, Calendar, Package, X, Sparkles, AlertCircle } from 'lucide-react';
 
@@ -11,6 +12,28 @@ interface FreightFormModalProps {
 }
 
 export const FreightFormModal: React.FC<FreightFormModalProps> = ({ isOpen, onClose, onSuccess, freightToEdit }) => {
+  const { getField } = useSaaS();
+
+  const fCargoDesc = getField('freightForm', 'cargoDescription') || { label: 'Descrição da Carga', placeholder: 'Ex: Carga de milho ensacado', enabled: true, required: true };
+  const fCargoType = getField('freightForm', 'cargoType') || { label: 'Tipo de Carga', placeholder: 'Selecione o tipo', enabled: true, required: true };
+  const fWeight = getField('freightForm', 'weight') || { label: 'Peso Total (Kg)', placeholder: 'Ex: 15000', enabled: true, required: true };
+  const fVolumes = getField('freightForm', 'volumes') || { label: 'Volumes', placeholder: 'Ex: 30', enabled: true, required: true };
+  const fVehicleType = getField('freightForm', 'vehicleType') || { label: 'Tipo de Veículo', placeholder: 'Selecione o veículo', enabled: true, required: true };
+  const fBodyType = getField('freightForm', 'bodyType') || { label: 'Carroceria', placeholder: 'Selecione a carroceria', enabled: true, required: true };
+  const fBrand = getField('freightForm', 'brand') || { label: 'Marca do Veículo', placeholder: 'Selecione a marca', enabled: true, required: true };
+  const fValue = getField('freightForm', 'value') || { label: 'Valor do Frete (R$)', placeholder: '0.00', enabled: true, required: true };
+  const fPaymentMethod = getField('freightForm', 'paymentMethod') || { label: 'Forma de Pagamento', placeholder: 'Selecione a forma', enabled: true, required: true };
+  
+  const fOriginCity = getField('freightForm', 'originCity') || { label: 'Cidade Origem', placeholder: 'Cidade de coleta', enabled: true, required: true };
+  const fOriginState = getField('freightForm', 'originState') || { label: 'UF Origem', placeholder: 'UF', enabled: true, required: true };
+  const fOriginAddress = getField('freightForm', 'originAddress') || { label: 'Endereço Origem', placeholder: 'Rua, Avenida, etc.', enabled: true, required: true };
+  const fOriginNumber = getField('freightForm', 'originNumber') || { label: 'Número Origem', placeholder: 'Número', enabled: true, required: true };
+  
+  const fDestCity = getField('freightForm', 'destCity') || { label: 'Cidade Destino', placeholder: 'Cidade de entrega', enabled: true, required: true };
+  const fDestState = getField('freightForm', 'destState') || { label: 'UF Destino', placeholder: 'UF', enabled: true, required: true };
+  const fDestAddress = getField('freightForm', 'destAddress') || { label: 'Endereço Destino', placeholder: 'Rua, Avenida, etc.', enabled: true, required: true };
+  const fDestNumber = getField('freightForm', 'destNumber') || { label: 'Número Destino', placeholder: 'Número', enabled: true, required: true };
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -265,52 +288,70 @@ export const FreightFormModal: React.FC<FreightFormModalProps> = ({ isOpen, onCl
               </span>
               
               <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-2">
-                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">Cidade</label>
-                  <input
-                    type="text"
-                    required
-                    value={originCity}
-                    onChange={e => setOriginCity(e.target.value)}
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
-                    placeholder="Ex: São José do Rio Preto"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">UF</label>
-                  <input
-                    type="text"
-                    required
-                    maxLength={2}
-                    value={originState}
-                    onChange={e => setOriginState(e.target.value.toUpperCase())}
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium uppercase"
-                    placeholder="SP"
-                  />
-                </div>
+                {fOriginCity.enabled && (
+                  <div className="col-span-2">
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      {fOriginCity.label} {fOriginCity.required && <span className="text-red-500">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      required={fOriginCity.required}
+                      value={originCity}
+                      onChange={e => setOriginCity(e.target.value)}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
+                      placeholder={fOriginCity.placeholder}
+                    />
+                  </div>
+                )}
+                {fOriginState.enabled && (
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      {fOriginState.label} {fOriginState.required && <span className="text-red-500">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      required={fOriginState.required}
+                      maxLength={2}
+                      value={originState}
+                      onChange={e => setOriginState(e.target.value.toUpperCase())}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium uppercase"
+                      placeholder={fOriginState.placeholder}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-2">
-                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">Endereço</label>
-                  <input
-                    type="text"
-                    value={originAddress}
-                    onChange={e => setOriginAddress(e.target.value)}
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
-                    placeholder="Av. Alberto Andaló"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">Número</label>
-                  <input
-                    type="text"
-                    value={originNumber}
-                    onChange={e => setOriginNumber(e.target.value)}
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
-                    placeholder="3100"
-                  />
-                </div>
+                {fOriginAddress.enabled && (
+                  <div className="col-span-2">
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      {fOriginAddress.label} {fOriginAddress.required && <span className="text-red-500">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      required={fOriginAddress.required}
+                      value={originAddress}
+                      onChange={e => setOriginAddress(e.target.value)}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
+                      placeholder={fOriginAddress.placeholder}
+                    />
+                  </div>
+                )}
+                {fOriginNumber.enabled && (
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      {fOriginNumber.label} {fOriginNumber.required && <span className="text-red-500">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      required={fOriginNumber.required}
+                      value={originNumber}
+                      onChange={e => setOriginNumber(e.target.value)}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
+                      placeholder={fOriginNumber.placeholder}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -344,52 +385,70 @@ export const FreightFormModal: React.FC<FreightFormModalProps> = ({ isOpen, onCl
               </span>
 
               <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-2">
-                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">Cidade</label>
-                  <input
-                    type="text"
-                    required
-                    value={destCity}
-                    onChange={e => setDestCity(e.target.value)}
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
-                    placeholder="Ex: São Paulo"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">UF</label>
-                  <input
-                    type="text"
-                    required
-                    maxLength={2}
-                    value={destState}
-                    onChange={e => setDestState(e.target.value.toUpperCase())}
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium uppercase"
-                    placeholder="SP"
-                  />
-                </div>
+                {fDestCity.enabled && (
+                  <div className="col-span-2">
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      {fDestCity.label} {fDestCity.required && <span className="text-red-500">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      required={fDestCity.required}
+                      value={destCity}
+                      onChange={e => setDestCity(e.target.value)}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
+                      placeholder={fDestCity.placeholder}
+                    />
+                  </div>
+                )}
+                {fDestState.enabled && (
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      {fDestState.label} {fDestState.required && <span className="text-red-500">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      required={fDestState.required}
+                      maxLength={2}
+                      value={destState}
+                      onChange={e => setDestState(e.target.value.toUpperCase())}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium uppercase"
+                      placeholder={fDestState.placeholder}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-2">
-                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">Endereço</label>
-                  <input
-                    type="text"
-                    value={destAddress}
-                    onChange={e => setDestAddress(e.target.value)}
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
-                    placeholder="Av. Paulista"
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">Número</label>
-                  <input
-                    type="text"
-                    value={destNumber}
-                    onChange={e => setDestNumber(e.target.value)}
-                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
-                    placeholder="1000"
-                  />
-                </div>
+                {fDestAddress.enabled && (
+                  <div className="col-span-2">
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      {fDestAddress.label} {fDestAddress.required && <span className="text-red-500">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      required={fDestAddress.required}
+                      value={destAddress}
+                      onChange={e => setDestAddress(e.target.value)}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
+                      placeholder={fDestAddress.placeholder}
+                    />
+                  </div>
+                )}
+                {fDestNumber.enabled && (
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                      {fDestNumber.label} {fDestNumber.required && <span className="text-red-500">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      required={fDestNumber.required}
+                      value={destNumber}
+                      onChange={e => setDestNumber(e.target.value)}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
+                      placeholder={fDestNumber.placeholder}
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -424,107 +483,140 @@ export const FreightFormModal: React.FC<FreightFormModalProps> = ({ isOpen, onCl
             </span>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="sm:col-span-2">
-                <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">Descrição da Carga</label>
-                <input
-                  type="text"
-                  required
-                  value={cargoDesc}
-                  onChange={e => setCargoDesc(e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
-                  placeholder="Ex: Carga geral paletizada - Peças industriais"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">Tipo de Carga</label>
-                <select
-                  value={cargoType}
-                  onChange={e => setCargoType(e.target.value as CargoType)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
-                >
-                  <option value="GERAL">Carga Geral</option>
-                  <option value="ALIMENTOS">Alimentos / Bebidas</option>
-                  <option value="REFRIGERADA">Refrigerada / Congelada</option>
-                  <option value="FRAGIL">Frágil</option>
-                  <option value="CONSTRUCAO">Material Construção</option>
-                  <option value="MAQUINARIO">Maquinário / Peças</option>
-                  <option value="PERIGOSA">Perigosa (Química)</option>
-                </select>
-              </div>
+              {fCargoDesc.enabled && (
+                <div className="sm:col-span-2">
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    {fCargoDesc.label} {fCargoDesc.required && <span className="text-red-500">*</span>}
+                  </label>
+                  <input
+                    type="text"
+                    required={fCargoDesc.required}
+                    value={cargoDesc}
+                    onChange={e => setCargoDesc(e.target.value)}
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
+                    placeholder={fCargoDesc.placeholder}
+                  />
+                </div>
+              )}
+              {fCargoType.enabled && (
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    {fCargoType.label} {fCargoType.required && <span className="text-red-500">*</span>}
+                  </label>
+                  <select
+                    value={cargoType}
+                    required={fCargoType.required}
+                    onChange={e => setCargoType(e.target.value as CargoType)}
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
+                  >
+                    <option value="GERAL">Carga Geral</option>
+                    <option value="ALIMENTOS">Alimentos / Bebidas</option>
+                    <option value="REFRIGERADA">Refrigerada / Congelada</option>
+                    <option value="FRAGIL">Frágil</option>
+                    <option value="CONSTRUCAO">Material Construção</option>
+                    <option value="MAQUINARIO">Maquinário / Peças</option>
+                    <option value="PERIGOSA">Perigosa (Química)</option>
+                  </select>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div>
-                <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">Peso Total (Kg)</label>
-                <input
-                  type="number"
-                  required
-                  value={weightKg}
-                  onChange={e => setWeightKg(e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
-                  placeholder="8500"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">Volumes</label>
-                <input
-                  type="number"
-                  value={volumeCount}
-                  onChange={e => setVolumeCount(e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
-                  placeholder="16"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">Tipo de Veículo</label>
-                <select
-                  value={vehicleType}
-                  onChange={e => setVehicleType(e.target.value as VehicleType)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-emerald-700 dark:text-emerald-400"
-                >
-                  <option value="TRUCK">Truck (14 ton)</option>
-                  <option value="TOCO">Toco (8 ton)</option>
-                  <option value="CARRETA">Carreta (28 ton)</option>
-                  <option value="BITREM">Bitrem (38 ton)</option>
-                  <option value="VUC">VUC / 3/4 (3.5 ton)</option>
-                  <option value="FIORINO">Fiorino / Utilitário</option>
-                  <option value="VAN">Van de Carga</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">Carroceria</label>
-                <select
-                  value={bodyType}
-                  onChange={e => setBodyType(e.target.value as BodyType)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
-                >
-                  <option value="BAU">Baú Fechado</option>
-                  <option value="SIDER">Sider (Lona)</option>
-                  <option value="GRADE_BAIXA">Grade Baixa</option>
-                  <option value="GRANELEIRO">Graneleiro</option>
-                  <option value="REFRIGERADO">Refrigerado</option>
-                  <option value="PLATAFORMA">Plataforma</option>
-                </select>
-              </div>
+              {fWeight.enabled && (
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    {fWeight.label} {fWeight.required && <span className="text-red-500">*</span>}
+                  </label>
+                  <input
+                    type="number"
+                    required={fWeight.required}
+                    value={weightKg}
+                    onChange={e => setWeightKg(e.target.value)}
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
+                    placeholder={fWeight.placeholder}
+                  />
+                </div>
+              )}
+              {fVolumes.enabled && (
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    {fVolumes.label} {fVolumes.required && <span className="text-red-500">*</span>}
+                  </label>
+                  <input
+                    type="number"
+                    required={fVolumes.required}
+                    value={volumeCount}
+                    onChange={e => setVolumeCount(e.target.value)}
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
+                    placeholder={fVolumes.placeholder}
+                  />
+                </div>
+              )}
+              {fVehicleType.enabled && (
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    {fVehicleType.label} {fVehicleType.required && <span className="text-red-500">*</span>}
+                  </label>
+                  <select
+                    value={vehicleType}
+                    required={fVehicleType.required}
+                    onChange={e => setVehicleType(e.target.value as VehicleType)}
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-emerald-700 dark:text-emerald-400"
+                  >
+                    <option value="TRUCK">Truck (14 ton)</option>
+                    <option value="TOCO">Toco (8 ton)</option>
+                    <option value="CARRETA">Carreta (28 ton)</option>
+                    <option value="BITREM">Bitrem (38 ton)</option>
+                    <option value="VUC">VUC / 3/4 (3.5 ton)</option>
+                    <option value="FIORINO">Fiorino / Utilitário</option>
+                    <option value="VAN">Van de Carga</option>
+                  </select>
+                </div>
+              )}
+              {fBodyType.enabled && (
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    {fBodyType.label} {fBodyType.required && <span className="text-red-500">*</span>}
+                  </label>
+                  <select
+                    value={bodyType}
+                    required={fBodyType.required}
+                    onChange={e => setBodyType(e.target.value as BodyType)}
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
+                  >
+                    <option value="BAU">Baú Fechado</option>
+                    <option value="SIDER">Sider (Lona)</option>
+                    <option value="GRADE_BAIXA">Grade Baixa</option>
+                    <option value="GRANELEIRO">Graneleiro</option>
+                    <option value="REFRIGERADO">Refrigerado</option>
+                    <option value="PLATAFORMA">Plataforma</option>
+                  </select>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-              <div>
-                <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">Montadora / Marca do Veículo</label>
-                <select
-                  value={vehicleBrand}
-                  onChange={e => setVehicleBrand(e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold"
-                >
-                  <option value="Volkswagen">Volkswagen</option>
-                  <option value="Mercedes-Benz">Mercedes-Benz</option>
-                  <option value="Iveco">Iveco</option>
-                  <option value="Scania">Scania</option>
-                  <option value="Ford">Ford</option>
-                  <option value="Volvo">Volvo</option>
-                  <option value="Outro">Outro</option>
-                </select>
-              </div>
+              {fBrand.enabled && (
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    {fBrand.label} {fBrand.required && <span className="text-red-500">*</span>}
+                  </label>
+                  <select
+                    value={vehicleBrand}
+                    required={fBrand.required}
+                    onChange={e => setVehicleBrand(e.target.value)}
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold"
+                  >
+                    <option value="Volkswagen">Volkswagen</option>
+                    <option value="Mercedes-Benz">Mercedes-Benz</option>
+                    <option value="Iveco">Iveco</option>
+                    <option value="Scania">Scania</option>
+                    <option value="Ford">Ford</option>
+                    <option value="Volvo">Volvo</option>
+                    <option value="Outro">Outro</option>
+                  </select>
+                </div>
+              )}
               {vehicleBrand === 'Outro' && (
                 <div>
                   <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">Especifique a Marca / Veículo</label>
@@ -548,31 +640,40 @@ export const FreightFormModal: React.FC<FreightFormModalProps> = ({ isOpen, onCl
             </span>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="text-[11px] font-bold text-emerald-900 dark:text-emerald-200 block mb-1">Valor do Frete (R$)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  value={price}
-                  onChange={e => setPrice(e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border-2 border-emerald-400 dark:border-emerald-600 rounded-lg text-sm font-extrabold text-emerald-700 dark:text-emerald-300"
-                  placeholder="1850.00"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">Forma de Pagamento</label>
-                <select
-                  value={paymentMethod}
-                  onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
-                >
-                  <option value="PIX">PIX Direto</option>
-                  <option value="TRANSFERENCIA">Transferência Bancária</option>
-                  <option value="A_VISTA">À Vista na Descarga</option>
-                  <option value="FATURADO_30D">Faturado 30 Dias</option>
-                </select>
-              </div>
+              {fValue.enabled && (
+                <div>
+                  <label className="text-[11px] font-bold text-emerald-900 dark:text-emerald-200 block mb-1">
+                    {fValue.label} {fValue.required && <span className="text-red-500">*</span>}
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required={fValue.required}
+                    value={price}
+                    onChange={e => setPrice(e.target.value)}
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border-2 border-emerald-400 dark:border-emerald-600 rounded-lg text-sm font-extrabold text-emerald-700 dark:text-emerald-300"
+                    placeholder={fValue.placeholder}
+                  />
+                </div>
+              )}
+              {fPaymentMethod.enabled && (
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                    {fPaymentMethod.label} {fPaymentMethod.required && <span className="text-red-500">*</span>}
+                  </label>
+                  <select
+                    value={paymentMethod}
+                    required={fPaymentMethod.required}
+                    onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
+                  >
+                    <option value="PIX">PIX Direto</option>
+                    <option value="TRANSFERENCIA">Transferência Bancária</option>
+                    <option value="A_VISTA">À Vista na Descarga</option>
+                    <option value="FATURADO_30D">Faturado 30 Dias</option>
+                  </select>
+                </div>
+              )}
               <div className="flex items-center pt-5">
                 <label className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
                   <input

@@ -116,14 +116,16 @@ export const CompanyDashboard: React.FC = () => {
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
 
-          <button
-            onClick={() => setIsWhatsAppModalOpen(true)}
-            className="px-3.5 py-2.5 rounded-xl border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 font-semibold text-xs sm:text-sm transition-colors cursor-pointer flex items-center gap-1.5"
-            title="Configurar e testar API de WhatsApp / Canal"
-          >
-            <MessageCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            <span>WhatsApp API</span>
-          </button>
+          {user?.role === 'SUPER_ADMIN' && (
+            <button
+              onClick={() => setIsWhatsAppModalOpen(true)}
+              className="px-3.5 py-2.5 rounded-xl border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 font-semibold text-xs sm:text-sm transition-colors cursor-pointer flex items-center gap-1.5"
+              title="Configurar e testar API de WhatsApp / Canal"
+            >
+              <MessageCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <span>WhatsApp API</span>
+            </button>
+          )}
           
           <button
             id="btn-create-new-freight-main"

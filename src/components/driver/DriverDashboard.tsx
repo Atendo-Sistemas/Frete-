@@ -37,7 +37,72 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onOpenFormModa
   const [acceptMessage, setAcceptMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
 
+  // Offline-First status and queue state
+  const [offline, setOffline] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [syncing, setSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
+
   const primaryVehicle = vehicles[0];
+
+  const updateOfflineStatus = useCallback(() => {
+    const isOff = (api as any).isOfflineMode ? (api as any).isOfflineMode() : !navigator.onLine;
+    const queue = (api as any).getOfflineQueue ? (api as any).getOfflineQueue() : [];
+    setOffline(isOff);
+    setPendingCount(queue.length);
+  }, []);
+
+  const handleSyncQueue = useCallback(async () => {
+    if (syncing) return;
+    setSyncing(true);
+    setSyncStatus('Sincronizando vistorias pendentes...');
+    try {
+      const res = await (api as any).syncOfflineQueue();
+      if (res && res.syncedCount > 0) {
+        setSyncStatus(`✓ ${res.syncedCount} vistorias offline sincronizadas com sucesso!`);
+        setTimeout(() => setSyncStatus(null), 4000);
+      } else {
+        setSyncStatus(null);
+      }
+    } catch (err) {
+      console.error('Erro ao sincronizar vistorias offline:', err);
+      setSyncStatus('⚠️ Falha ao sincronizar. Tentando novamente em breve.');
+      setTimeout(() => setSyncStatus(null), 4000);
+    } finally {
+      setSyncing(false);
+    }
+  }, [syncing]);
+
+  useEffect(() => {
+    updateOfflineStatus();
+
+    window.addEventListener('online', updateOfflineStatus);
+    window.addEventListener('offline', updateOfflineStatus);
+    window.addEventListener('elolog_offline_queue_changed', updateOfflineStatus);
+
+    return () => {
+      window.removeEventListener('online', updateOfflineStatus);
+      window.removeEventListener('offline', updateOfflineStatus);
+      window.removeEventListener('elolog_offline_queue_changed', updateOfflineStatus);
+    };
+  }, [updateOfflineStatus]);
+
+  // Automatic sync when online
+  useEffect(() => {
+    if (pendingCount > 0 && !offline && !syncing) {
+      handleSyncQueue();
+    }
+  }, [pendingCount, offline, syncing, handleSyncQueue]);
+
+  const toggleSimulateOffline = () => {
+    const nextVal = !offline;
+    if ((api as any).setSimulatedOffline) {
+      (api as any).setSimulatedOffline(nextVal);
+    } else {
+      localStorage.setItem('elolog_simulate_offline', nextVal ? 'true' : 'false');
+      window.dispatchEvent(new Event('elolog_offline_queue_changed'));
+    }
+  };
 
   const fetchFreights = useCallback(async () => {
     try {
@@ -150,6 +215,78 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onOpenFormModa
           </div>
         </div>
       </div>
+
+      {/* PWA Offline-First Status Controller */}
+      <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className={`p-2.5 rounded-xl ${offline ? 'bg-amber-100 dark:bg-amber-950 text-amber-700' : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700'}`}>
+            <Truck className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200">
+                PWA Offline-First Ativo
+              </span>
+              <span className={`inline-block w-2 h-2 rounded-full ${offline ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 animate-pulse'}`}></span>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              {offline 
+                ? 'Você está operando em modo OFFLINE. Vistorias serão salvas localmente.' 
+                : 'Sinal OK! Sincronização automática de dados habilitada.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+          {/* Offline simulator toggle button */}
+          <button
+            onClick={toggleSimulateOffline}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+              offline 
+                ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' 
+                : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700'
+            }`}
+          >
+            {offline ? '⚡ Restaurar Sinal' : '🔌 Simular Sem Sinal'}
+          </button>
+        </div>
+      </div>
+
+      {/* Pending Sync Banner */}
+      {pendingCount > 0 && (
+        <div className="bg-amber-50/80 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xl">📥</span>
+            <div>
+              <p className="text-xs font-extrabold text-amber-800 dark:text-amber-300">
+                Vistorias Salvas Localmente ({pendingCount})
+              </p>
+              <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                Você preencheu {pendingCount} vistorias offline. {offline ? 'Restaure o sinal para sincronizá-las.' : 'Sincronização automática em andamento...'}
+              </p>
+            </div>
+          </div>
+          {!offline && (
+            <button
+              onClick={handleSyncQueue}
+              disabled={syncing}
+              className="w-full sm:w-auto px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-400 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer shrink-0"
+            >
+              {syncing ? 'Sincronizando...' : 'Sincronizar Agora'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Sync Status Toast/Notification */}
+      {syncStatus && (
+        <div className="bg-emerald-600 text-white rounded-xl p-3.5 text-xs font-bold shadow-lg flex items-center justify-between gap-3">
+          <span>{syncStatus}</span>
+          <button onClick={() => setSyncStatus(null)} className="text-white/80 hover:text-white">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Tabs Control */}
       <div className="flex bg-slate-100 dark:bg-slate-800/80 p-1.5 rounded-xl gap-1">

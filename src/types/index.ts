@@ -100,6 +100,7 @@ export interface User {
   role: UserRole;
   status: UserStatus;
   driverId?: string; // If role is MOTORISTA
+  password?: string; // For company logins
   lastLoginAt?: string;
   createdAt: string;
   updatedAt?: string;
@@ -372,3 +373,56 @@ export interface WhatsAppNotificationPayload {
   useButtonApi?: boolean;
   buttons?: Array<{ id: string; text: string }>;
 }
+
+export interface PlanConfig {
+  id: 'BASICO' | 'PROFISSIONAL' | 'EMPRESARIAL';
+  name: string;
+  price: number;
+  maxFreightsPerMonth: number;
+  maxUsers: number;
+  maxDrivers: number;
+  isActive: boolean;
+}
+
+export interface SaaSLayoutConfig {
+  primaryColor: string;
+  borderRadius: 'none' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  fontFamily: 'sans' | 'serif' | 'mono' | 'display';
+  navbarStyle: 'dark' | 'light' | 'colored';
+  logoText?: string;
+  systemBackground: 'minimal' | 'warm' | 'slate';
+  homeBadgeText?: string;
+  homeTitle?: string;
+  homeTitleAccent?: string;
+  homeSubtitle?: string;
+}
+
+export interface FormFieldSetting {
+  id: string;
+  originalLabel: string;
+  label: string;
+  placeholder: string;
+  enabled: boolean;
+  required: boolean;
+}
+
+export interface SaaSFormFieldsConfig {
+  userForm: FormFieldSetting[];
+  freightForm: FormFieldSetting[];
+  driverForm: FormFieldSetting[];
+}
+
+export interface SaaSGlobalConfig {
+  systemName: string;
+  supportPhone: string;
+  supportEmail: string;
+  defaultCommissionPercent: number;
+  requireChecklistPhotos: boolean;
+  minDriverAge: number;
+  otpExpirationMinutes: number;
+  allowSelfRegistration: boolean;
+  plans: PlanConfig[];
+  layout?: SaaSLayoutConfig;
+  formFields?: SaaSFormFieldsConfig;
+}
+

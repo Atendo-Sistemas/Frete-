@@ -18,6 +18,7 @@ export const SuperAdminDashboard: React.FC = () => {
   const [city, setCity] = useState('');
   const [state, setState] = useState('SP');
   const [plan, setPlan] = useState<'BASICO' | 'PROFISSIONAL' | 'EMPRESARIAL'>('PROFISSIONAL');
+  const [status, setStatus] = useState<'PENDENTE' | 'ATIVA' | 'BLOQUEADA'>('ATIVA');
 
   useEffect(() => {
     loadTenants();
@@ -45,6 +46,7 @@ export const SuperAdminDashboard: React.FC = () => {
     setCity('');
     setState('SP');
     setPlan('PROFISSIONAL');
+    setStatus('ATIVA');
     setIsModalOpen(true);
   };
 
@@ -58,6 +60,7 @@ export const SuperAdminDashboard: React.FC = () => {
     setCity(t.city);
     setState(t.state);
     setPlan(t.plan);
+    setStatus(t.status || 'ATIVA');
     setIsModalOpen(true);
   };
 
@@ -73,7 +76,8 @@ export const SuperAdminDashboard: React.FC = () => {
           phone,
           city,
           state,
-          plan
+          plan,
+          status
         });
         alert('Empresa atualizada com sucesso!');
       } else {
@@ -85,7 +89,8 @@ export const SuperAdminDashboard: React.FC = () => {
           phone,
           city,
           state,
-          plan
+          plan,
+          status
         });
         alert('Empresa cadastrada com sucesso!');
       }
@@ -104,6 +109,19 @@ export const SuperAdminDashboard: React.FC = () => {
       alert('Empresa excluída com sucesso');
     } catch (err: any) {
       alert(err.message || 'Erro ao excluir empresa');
+    }
+  };
+
+  const handleApproveTenant = async (t: Tenant) => {
+    try {
+      await api.updateTenant(t.id, {
+        ...t,
+        status: 'ATIVA'
+      });
+      alert(`Empresa "${t.name}" aprovada com sucesso! Todos os usuários associados receberam ativação automática e o isolamento de dados foi configurado.`);
+      loadTenants();
+    } catch (err: any) {
+      alert(err.message || 'Erro ao aprovar empresa');
     }
   };
 
@@ -159,9 +177,24 @@ export const SuperAdminDashboard: React.FC = () => {
                     <p className="text-xs text-slate-500 font-mono">CNPJ: {t.cnpj}</p>
                   </div>
                 </div>
-                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
-                  {t.plan}
-                </span>
+                <div className="flex flex-col items-end gap-1">
+                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+                    {t.plan}
+                  </span>
+                  {t.status === 'PENDENTE' ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 animate-pulse border border-amber-200">
+                      PENDENTE APROVAÇÃO
+                    </span>
+                  ) : t.status === 'BLOQUEADA' ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-red-100 text-red-800 border border-red-200">
+                      BLOQUEADA
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-800">
+                      ATIVA
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-xs mt-3">
@@ -172,10 +205,24 @@ export const SuperAdminDashboard: React.FC = () => {
                 <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
                   <span className="text-slate-400 block font-semibold text-[10px] uppercase">Isolamento DB</span>
                   <span className="text-emerald-600 font-bold flex items-center gap-1">
-                    <CheckCircle className="w-3.5 h-3.5" /> Ativo ({t.status})
+                    <CheckCircle className="w-3.5 h-3.5" /> Ativo (Isolado)
                   </span>
                 </div>
               </div>
+
+              {t.status === 'PENDENTE' && (
+                <div className="mt-3 p-3 bg-amber-50 rounded-xl border border-amber-100 flex items-center justify-between gap-2">
+                  <div className="text-[11px] text-amber-800 font-medium">
+                    Esta empresa foi pré-registrada e aguarda liberação.
+                  </div>
+                  <button
+                    onClick={() => handleApproveTenant(t)}
+                    className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-xs cursor-pointer"
+                  >
+                    Aprovar Empresa
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
@@ -309,6 +356,19 @@ export const SuperAdminDashboard: React.FC = () => {
                     placeholder="SP"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Status da Empresa</label>
+                <select
+                  value={status}
+                  onChange={e => setStatus(e.target.value as any)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold"
+                >
+                  <option value="PENDENTE">Pendente (Aguardando Aprovação)</option>
+                  <option value="ATIVA">Ativa</option>
+                  <option value="BLOQUEADA">Bloqueada</option>
+                </select>
               </div>
 
               <div className="flex justify-end gap-3 pt-3">

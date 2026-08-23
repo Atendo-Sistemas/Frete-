@@ -21,6 +21,7 @@ interface AuthContextType {
   unreadCount: number;
   loading: boolean;
   switchUser: (userId: string) => Promise<void>;
+  logout: () => void;
   refreshProfile: () => Promise<void>;
   refreshNotifications: () => Promise<void>;
   markNotificationAsRead: (id: string) => Promise<void>;
@@ -91,22 +92,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const logout = useCallback(() => {
+    setUser(null);
+    setTenant(null);
+    setDriver(null);
+    setVehicles([]);
+    setAuthToken('');
+  }, []);
+
   useEffect(() => {
     const init = async () => {
-      // Ensure initial token is set
-      const token = getAuthToken();
-      if (!token) {
-        setAuthToken('user-admin-1');
+      const token = localStorage.getItem('frete_auth_token');
+      if (token && token !== '') {
+        await refreshProfile();
+        await refreshNotifications();
       }
-      await refreshProfile();
-      await refreshNotifications();
       setLoading(false);
     };
     init();
 
     // Notification polling interval
     const interval = setInterval(() => {
-      refreshNotifications();
+      const token = localStorage.getItem('frete_auth_token');
+      if (token && token !== '') {
+        refreshNotifications();
+      }
     }, 8000);
 
     return () => clearInterval(interval);
@@ -126,6 +136,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         unreadCount,
         loading,
         switchUser,
+        logout,
         refreshProfile,
         refreshNotifications,
         markNotificationAsRead,

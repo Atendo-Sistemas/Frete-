@@ -10,7 +10,9 @@ import {
   FormResponse, 
   AuditLog,
   UserRole,
-  WhatsAppConfig
+  WhatsAppConfig,
+  SaaSGlobalConfig,
+  PlanConfig
 } from '../src/types';
 
 // In-Memory Multi-Tenant Store with realistic seed data
@@ -33,6 +35,70 @@ class DatabaseStore {
     isActive: true,
     autoNotifyChecklist: true,
     autoNotifyFreightStatus: true
+  };
+  saasGlobalConfig: SaaSGlobalConfig = {
+    systemName: 'Elo Log',
+    supportPhone: '(17) 99745-1176',
+    supportEmail: 'contato@elolog.com.br',
+    defaultCommissionPercent: 12,
+    requireChecklistPhotos: true,
+    minDriverAge: 18,
+    otpExpirationMinutes: 5,
+    allowSelfRegistration: true,
+    plans: [
+      { id: 'BASICO', name: 'Plano Básico', price: 299, maxFreightsPerMonth: 15, maxUsers: 2, maxDrivers: 5, isActive: true },
+      { id: 'PROFISSIONAL', name: 'Plano Profissional', price: 599, maxFreightsPerMonth: 150, maxUsers: 10, maxDrivers: 30, isActive: true },
+      { id: 'EMPRESARIAL', name: 'Plano Empresarial', price: 1499, maxFreightsPerMonth: 9999, maxUsers: 50, maxDrivers: 200, isActive: true }
+    ],
+    layout: {
+      primaryColor: '#059669',
+      borderRadius: 'xl',
+      fontFamily: 'sans',
+      navbarStyle: 'dark',
+      logoText: 'ELO LOG',
+      systemBackground: 'minimal'
+    },
+    formFields: {
+      userForm: [
+        { id: 'name', originalLabel: 'Nome Completo', label: 'Nome Completo', placeholder: 'Digite o nome completo', enabled: true, required: true },
+        { id: 'email', originalLabel: 'E-mail Corporativo', label: 'E-mail Corporativo', placeholder: 'Digite o e-mail corporativo', enabled: true, required: true },
+        { id: 'phone', originalLabel: 'Telefone / WhatsApp', label: 'Telefone / WhatsApp', placeholder: '(99) 99999-9999', enabled: true, required: true },
+        { id: 'role', originalLabel: 'Nível de Permissão', label: 'Nível de Permissão', placeholder: 'Selecione a permissão', enabled: true, required: true }
+      ],
+      freightForm: [
+        { id: 'cargoDescription', originalLabel: 'Descrição da Carga', label: 'Descrição da Carga', placeholder: 'Ex: Carga de milho ensacado', enabled: true, required: true },
+        { id: 'cargoType', originalLabel: 'Tipo de Carga', label: 'Tipo de Carga', placeholder: 'Selecione o tipo', enabled: true, required: true },
+        { id: 'weight', originalLabel: 'Peso Total (Kg)', label: 'Peso Total (Kg)', placeholder: 'Ex: 15000', enabled: true, required: true },
+        { id: 'volumes', originalLabel: 'Volumes', label: 'Volumes', placeholder: 'Ex: 30', enabled: true, required: true },
+        { id: 'vehicleType', originalLabel: 'Tipo de Veículo', label: 'Tipo de Veículo', placeholder: 'Selecione o veículo', enabled: true, required: true },
+        { id: 'bodyType', originalLabel: 'Carroceria', label: 'Carroceria', placeholder: 'Selecione a carroceria', enabled: true, required: true },
+        { id: 'brand', originalLabel: 'Marca do Veículo', label: 'Marca do Veículo', placeholder: 'Marca recomendada', enabled: true, required: true },
+        { id: 'value', originalLabel: 'Valor do Frete (R$)', label: 'Valor do Frete (R$)', placeholder: '0.00', enabled: true, required: true },
+        { id: 'paymentMethod', originalLabel: 'Forma de Pagamento', label: 'Forma de Pagamento', placeholder: 'Ex: Pix, Transferência', enabled: true, required: true },
+        { id: 'originCity', originalLabel: 'Cidade Origem', label: 'Cidade Origem', placeholder: 'Cidade de coleta', enabled: true, required: true },
+        { id: 'originState', originalLabel: 'UF Origem', label: 'UF Origem', placeholder: 'UF', enabled: true, required: true },
+        { id: 'originAddress', originalLabel: 'Endereço Origem', label: 'Endereço Origem', placeholder: 'Rua, Avenida, etc.', enabled: true, required: true },
+        { id: 'originNumber', originalLabel: 'Número Origem', label: 'Número Origem', placeholder: 'Número', enabled: true, required: true },
+        { id: 'destCity', originalLabel: 'Cidade Destino', label: 'Cidade Destino', placeholder: 'Cidade de entrega', enabled: true, required: true },
+        { id: 'destState', originalLabel: 'UF Destino', label: 'UF Destino', placeholder: 'UF', enabled: true, required: true },
+        { id: 'destAddress', originalLabel: 'Endereço Destino', label: 'Endereço Destino', placeholder: 'Rua, Avenida, etc.', enabled: true, required: true },
+        { id: 'destNumber', originalLabel: 'Número Destino', label: 'Número Destino', placeholder: 'Número', enabled: true, required: true }
+      ],
+      driverForm: [
+        { id: 'name', originalLabel: 'Nome Completo', label: 'Nome Completo', placeholder: 'Nome completo do motorista', enabled: true, required: true },
+        { id: 'email', originalLabel: 'E-mail', label: 'E-mail', placeholder: 'email@provedor.com', enabled: true, required: true },
+        { id: 'phone', originalLabel: 'Telefone / WhatsApp', label: 'Telefone / WhatsApp', placeholder: '(99) 99999-9999', enabled: true, required: true },
+        { id: 'cpf', originalLabel: 'CPF', label: 'CPF', placeholder: '000.000.000-00', enabled: true, required: true },
+        { id: 'rg', originalLabel: 'RG', label: 'RG', placeholder: 'RG do motorista', enabled: true, required: true },
+        { id: 'city', originalLabel: 'Cidade', label: 'Cidade', placeholder: 'Cidade', enabled: true, required: true },
+        { id: 'state', originalLabel: 'Estado (UF)', label: 'Estado (UF)', placeholder: 'UF', enabled: true, required: true },
+        { id: 'cnh', originalLabel: 'Nº CNH', label: 'Nº CNH', placeholder: 'Número da habilitação', enabled: true, required: true },
+        { id: 'cnhCategory', originalLabel: 'Categoria CNH', label: 'Categoria CNH', placeholder: 'Selecione a categoria', enabled: true, required: true },
+        { id: 'vehicleType', originalLabel: 'Tipo de Veículo', label: 'Tipo de Veículo', placeholder: 'Tipo do caminhão', enabled: true, required: true },
+        { id: 'vehicleModel', originalLabel: 'Marca / Modelo', label: 'Marca / Modelo', placeholder: 'Ex: Volvo FH 540', enabled: true, required: true },
+        { id: 'vehiclePlate', originalLabel: 'Placa', label: 'Placa', placeholder: 'Placa do veículo', enabled: true, required: true }
+      ]
+    }
   };
 
   // Mutex locks for atomic operations (e.g. freight acceptance)
@@ -243,11 +309,47 @@ class DatabaseStore {
         driverId: 'driver-marcos-03',
         lastLoginAt: isoNow,
         createdAt: '2026-02-05T09:30:00.000Z'
+      },
+      {
+        id: 'user-driver-test-17',
+        tenantId: 'tenant-translog-01',
+        name: 'Motorista Teste WhatsApp',
+        email: 'motorista.17991163961@elolog.com.br',
+        phone: '(17) 99116-3961',
+        role: 'MOTORISTA',
+        status: 'ATIVO',
+        driverId: 'driver-test-17',
+        lastLoginAt: isoNow,
+        createdAt: '2026-02-20T10:00:00.000Z'
       }
     ];
 
     // 3. Drivers
     this.drivers = [
+      {
+        id: 'driver-test-17',
+        userId: 'user-driver-test-17',
+        tenantId: 'tenant-translog-01',
+        name: 'Motorista Teste WhatsApp',
+        cpf: '456.789.012-33',
+        rg: '55.443.221-X SSP/SP',
+        birthDate: '1990-05-12',
+        phone: '(17) 99116-3961',
+        email: 'motorista.17991163961@elolog.com.br',
+        zipCode: '15010-000',
+        address: 'Rua Teste WhatsApp, 100',
+        city: 'São José do Rio Preto',
+        state: 'SP',
+        cnh: '09876543210',
+        cnhCategory: 'E',
+        cnhExpiresAt: '2030-01-01',
+        status: 'DISPONIVEL',
+        rating: 5.0,
+        completedTrips: 15,
+        rntrc: '99887766',
+        notes: 'Motorista de teste criado especificamente para validação do login via WhatsApp (17) 99116-3961.',
+        createdAt: '2026-02-20T10:00:00.000Z'
+      },
       {
         id: 'driver-joao-01',
         userId: 'user-driver-joao',

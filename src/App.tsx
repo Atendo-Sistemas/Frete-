@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { SaaSProvider } from './context/SaaSContext';
 import { Navbar } from './components/layout/Navbar';
 import { DemoSwitcher } from './components/common/DemoSwitcher';
 import { DriverDashboard } from './components/driver/DriverDashboard';
@@ -12,6 +13,8 @@ import { FreightFormModal } from './components/freight/FreightFormModal';
 import { UserManager } from './components/users/UserManager';
 import { AuditLogViewer } from './components/audit/AuditLogViewer';
 import { SuperAdminDashboard } from './components/superadmin/SuperAdminDashboard';
+import { SaaSConfigPanel } from './components/superadmin/SaaSConfigPanel';
+import { GuestInstitutionalPage } from './components/common/GuestInstitutionalPage';
 import { FormDefinition } from './types';
 import { api } from './services/api';
 
@@ -35,12 +38,13 @@ const AppContent: React.FC = () => {
         setActiveTab('driver-portal');
       }
     } else if (user?.role === 'SUPER_ADMIN') {
-      if (activeTab === 'driver-portal' || activeTab === 'driver-profile') {
+      const validSuperAdminTabs = ['saas-tenants', 'freights', 'drivers', 'forms', 'users', 'audit', 'saas-config'];
+      if (!validSuperAdminTabs.includes(activeTab)) {
         setActiveTab('saas-tenants');
       }
     } else {
       // Company roles (ADMIN, SUPERVISOR, USUARIO)
-      if (activeTab === 'driver-portal' || activeTab === 'driver-profile') {
+      if (activeTab === 'driver-portal' || activeTab === 'driver-profile' || activeTab === 'saas-tenants') {
         setActiveTab('freights');
       }
     }
@@ -57,6 +61,15 @@ const AppContent: React.FC = () => {
       console.error('Erro ao abrir formulário:', err);
     }
   };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors">
+        <DemoSwitcher />
+        <GuestInstitutionalPage onLoginSuccess={() => setActiveTab('freights')} />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors">
@@ -87,6 +100,7 @@ const AppContent: React.FC = () => {
             {activeTab === 'users' && <UserManager />}
             {activeTab === 'audit' && <AuditLogViewer />}
             {activeTab === 'saas-tenants' && <SuperAdminDashboard />}
+            {activeTab === 'saas-config' && <SaaSConfigPanel />}
           </>
         )}
       </main>
@@ -129,8 +143,10 @@ const AppContent: React.FC = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <SaaSProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </SaaSProvider>
   );
 }
