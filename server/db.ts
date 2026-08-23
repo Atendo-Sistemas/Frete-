@@ -21,6 +21,7 @@ class DatabaseStore {
   vehicles: Vehicle[] = [];
   freights: Freight[] = [];
   notifications: AppNotification[] = [];
+  pushSubscriptions: any[] = [];
   forms: FormDefinition[] = [];
   formResponses: FormResponse[] = [];
   auditLogs: AuditLog[] = [];

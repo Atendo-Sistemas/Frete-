@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { db } from './db';
+import webpush from 'web-push';
 import { 
   User, 
   FreightStatus, 
@@ -14,6 +15,33 @@ import {
 } from '../src/types';
 
 export const apiRouter = Router();
+
+const publicVapidKey = process.env.VAPID_PUBLIC_KEY || 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYPE5NjhF0';
+const privateVapidKey = process.env.VAPID_PRIVATE_KEY || 'test_private_vapid_key_abcdef1234567890';
+
+try {
+  webpush.setVapidDetails(
+    'mailto:contato@portaldefretes.com.br',
+    publicVapidKey,
+    privateVapidKey
+  );
+} catch (e) {
+  console.warn('VAPID setup warning:', e);
+}
+
+export async function sendPushNotificationToAll(payload: any) {
+  const subs = (db as any).pushSubscriptions || [];
+  for (let i = subs.length - 1; i >= 0; i--) {
+    const sub = subs[i];
+    try {
+      await webpush.sendNotification(sub, JSON.stringify(payload));
+    } catch (err: any) {
+      if (err.statusCode === 404 || err.statusCode === 410) {
+        subs.splice(i, 1);
+      }
+    }
+  }
+}
 
 // Middleware to extract user from Authorization header or session demo token
 export interface AuthenticatedRequest extends Request {
@@ -599,6 +627,12 @@ apiRouter.post('/freights', (req: AuthenticatedRequest, res: Response) => {
         message: `${newFreight.origin.city}/${newFreight.origin.state} ➡️ ${newFreight.destination.city}/${newFreight.destination.state} | R$ ${newFreight.payment.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
       });
     });
+
+    sendPushNotificationToAll({
+      title: '🚚 Novo Frete Disponível na Elo Log!',
+      body: `${newFreight.origin.city}/${newFreight.origin.state} ➡️ ${newFreight.destination.city}/${newFreight.destination.state} | R$ ${newFreight.payment.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+      url: '/'
+    }).catch(console.error);
   }
 
   res.status(201).json(newFreight);
@@ -1444,4 +1478,47 @@ apiRouter.delete('/vehicles/:id', (req: AuthenticatedRequest, res: Response) => 
 
   res.json({ success: true, message: 'Veículo excluído com sucesso' });
 });
+
+// Web Push Notifications endpoints
+apiRouter.get('/push/vapid-key', (req: AuthenticatedRequest, res: Response) => {
+  res.json({ publicKey: publicVapidKey });
+});
+
+apiRouter.post('/push/subscribe', (req: AuthenticatedRequest, res: Response) => {
+  const subscription = req.body;
+  if (!subscription || !subscription.endpoint) {
+    return res.status(400).json({ error: 'Subscription inválida' });
+  }
+
+  if (!(db as any).pushSubscriptions) {
+    (db as any).pushSubscriptions = [];
+  }
+
+  const subs = (db as any).pushSubscriptions;
+  const exists = subs.some((s: any) => s.endpoint === subscription.endpoint);
+  if (!exists) {
+    subs.push({
+      ...subscription,
+      userId: req.user?.id,
+      tenantId: req.user?.tenantId,
+      createdAt: new Date().toISOString()
+    });
+  }
+
+  res.json({ success: true, message: 'Push subscription registrada com sucesso' });
+});
+
+apiRouter.post('/push/test', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    await sendPushNotificationToAll({
+      title: '🔔 Teste de Notificação Push - Elo Log',
+      body: 'As notificações push em tempo real estão ativas e funcionando perfeitamente!',
+      url: '/'
+    });
+    res.json({ success: true, message: 'Notificação de teste disparada com sucesso' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Erro ao enviar notificação de teste' });
+  }
+});
+
 
