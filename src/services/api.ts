@@ -13,7 +13,8 @@ import {
   WhatsAppConfig,
   WhatsAppNotificationPayload,
   SaaSGlobalConfig,
-  TripExpenseReport
+  TripExpenseReport,
+  EmailConfig
 } from '../types';
 
 let currentToken: string = 'user-admin-1';
@@ -83,7 +84,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
   const data = await res.json();
   if (!res.ok) {
-    throw new Error(data.error || 'Ocorreu um erro na requisição');
+    throw new Error(data.message || data.error || 'Ocorreu um erro na requisição');
   }
 
   return data as T;
@@ -108,8 +109,21 @@ export const api = {
     });
   },
 
+  async switchDemoUser(userId: string) {
+    return request<{
+      user: User;
+      tenant: Tenant | null;
+      driver?: Driver;
+      vehicles: Vehicle[];
+      token: string;
+    }>('/auth/switch-demo', {
+      method: 'POST',
+      body: JSON.stringify({ userId })
+    });
+  },
+
   async requestOtp(phone: string) {
-    return request<{ success: boolean; message: string; demoCode?: string }>('/auth/request-otp', {
+    return request<{ success: boolean; message: string }>('/auth/request-otp', {
       method: 'POST',
       body: JSON.stringify({ phone })
     });
@@ -130,7 +144,7 @@ export const api = {
     phone: string;
     password?: string;
   }) {
-    return request<{ success: boolean; message: string; demoCode?: string }>('/auth/register-company', {
+    return request<{ success: boolean; message: string }>('/auth/register-company', {
       method: 'POST',
       body: JSON.stringify(data)
     });
@@ -404,6 +418,13 @@ export const api = {
     });
   },
 
+  async testEmailConnection(data: EmailConfig) {
+    return request<{ success: boolean; message: string }>('/integrations/email/test', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
   async getFormResponses(params?: { freightId?: string; formId?: string }) {
     const query = new URLSearchParams();
     if (params?.freightId) query.set('freightId', params.freightId);
@@ -524,5 +545,69 @@ export const api = {
     return request<{ success: boolean; message: string }>(`/expenses/${id}`, {
       method: 'DELETE'
     });
+  },
+
+  // SQL Database & Installation Management
+  async getDatabaseStatus() {
+    return request<{
+      success: boolean;
+      enabled: boolean;
+      status: 'CONNECTED' | 'DISCONNECTED' | 'ERROR' | 'UNCONFIGURED';
+      host: string;
+      port: number;
+      database: string;
+      username: string;
+      ssl: boolean;
+      lastTestedAt?: string;
+      tables: string[];
+      recordsCount: Record<string, number>;
+      imageCompression?: any;
+    }>('/database/status');
+  },
+
+  async testDatabaseConnection(customConfig?: any) {
+    return request<{
+      success: boolean;
+      message: string;
+      version?: string;
+      tablesCount?: number;
+      latencyMs?: number;
+    }>('/database/test', {
+      method: 'POST',
+      body: JSON.stringify(customConfig || {})
+    });
+  },
+
+  async migrateDatabase() {
+    return request<{
+      success: boolean;
+      message: string;
+    }>('/database/migrate', {
+      method: 'POST'
+    });
+  },
+
+  async getDatabaseSchema() {
+    const token = getAuthToken();
+    const res = await fetch('/api/database/schema', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    return res.text();
+  },
+
+  async getSshInstallScript() {
+    const token = getAuthToken();
+    const res = await fetch('/api/installation/ssh-script', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    return res.text();
+  },
+
+  async getPortainerStackYaml() {
+    const token = getAuthToken();
+    const res = await fetch('/api/installation/portainer-stack', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    return res.text();
   }
 };

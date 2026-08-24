@@ -65,11 +65,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const switchUser = async (userId: string) => {
     setLoading(true);
     try {
+      const res = await api.switchDemoUser(userId);
+      if (res && res.token) {
+        setAuthToken(res.token);
+        setUser(res.user);
+        setTenant(res.tenant || null);
+        setDriver(res.driver || null);
+        setVehicles(res.vehicles || []);
+        await refreshNotifications();
+      } else {
+        setAuthToken(userId);
+        await refreshProfile();
+        await refreshNotifications();
+      }
+    } catch (err) {
+      console.error('Error switching demo user:', err);
+      // Fallback
       setAuthToken(userId);
       await refreshProfile();
       await refreshNotifications();
-    } catch (err) {
-      console.error('Error switching demo user:', err);
     } finally {
       setLoading(false);
     }

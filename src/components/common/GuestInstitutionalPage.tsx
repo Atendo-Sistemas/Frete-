@@ -5,6 +5,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useSaaS } from '../../context/SaaSContext';
 import { ThemeToggle } from './ThemeToggle';
 
+import { TermsOfUse } from './TermsOfUse';
+import { PrivacyPolicy } from './PrivacyPolicy';
+
 interface GuestInstitutionalPageProps {
   onLoginSuccess: () => void;
 }
@@ -13,6 +16,10 @@ export const GuestInstitutionalPage: React.FC<GuestInstitutionalPageProps> = ({ 
   const { refreshProfile, refreshNotifications } = useAuth();
   const { config } = useSaaS();
   const [activeSubTab, setActiveSubTab] = useState<'inicio' | 'contato' | 'login' | 'cadastro'>('inicio');
+
+  // Terms and Privacy View
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
   // Dynamic layout / institutional home text config with fallbacks
   const logoName = config?.layout?.logoText || 'Elo Log';
@@ -32,7 +39,6 @@ export const GuestInstitutionalPage: React.FC<GuestInstitutionalPageProps> = ({ 
   const [loginTimerActive, setLoginTimerActive] = useState(false);
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
-  const [simulatedOtpBox, setSimulatedOtpBox] = useState<string | null>(null);
 
   // Register Form States
   const [regCompanyName, setRegCompanyName] = useState('');
@@ -42,11 +48,12 @@ export const GuestInstitutionalPage: React.FC<GuestInstitutionalPageProps> = ({ 
   const [regPhone, setRegPhone] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
+  const [regTermsAccepted, setRegTermsAccepted] = useState(false);
+  const [regPrivacyAccepted, setRegPrivacyAccepted] = useState(false);
   const [regLoading, setRegLoading] = useState(false);
   const [regError, setRegError] = useState('');
   const [regStep, setRegStep] = useState<'form' | 'verify' | 'success'>('form');
   const [regOtpCode, setRegOtpCode] = useState('');
-  const [simulatedRegBox, setSimulatedRegBox] = useState<string | null>(null);
 
   // Contact Form States
   const [contactName, setContactName] = useState('');
@@ -171,7 +178,6 @@ export const GuestInstitutionalPage: React.FC<GuestInstitutionalPageProps> = ({ 
       setAuthToken(res.token);
       await refreshProfile();
       await refreshNotifications();
-      setSimulatedOtpBox(null);
       onLoginSuccess();
     } catch (err: any) {
       setLoginError(err.message || 'Código incorreto ou expirado.');
@@ -195,10 +201,15 @@ export const GuestInstitutionalPage: React.FC<GuestInstitutionalPageProps> = ({ 
       return;
     }
 
+    if (!regTermsAccepted || !regPrivacyAccepted) {
+      setRegError('Você deve aceitar os Termos de Uso e a Política de Privacidade.');
+      return;
+    }
+
     setRegLoading(true);
 
     try {
-      const res = await api.registerCompany({
+      await api.registerCompany({
         companyName: regCompanyName,
         cnpj: regCnpj,
         responsibleName: regResponsibleName,
@@ -207,9 +218,6 @@ export const GuestInstitutionalPage: React.FC<GuestInstitutionalPageProps> = ({ 
         password: regPassword
       });
 
-      if (res.demoCode) {
-        setSimulatedRegBox(res.demoCode);
-      }
       setRegStep('verify');
     } catch (err: any) {
       setRegError(err.message || 'Erro ao realizar cadastro.');
@@ -233,7 +241,6 @@ export const GuestInstitutionalPage: React.FC<GuestInstitutionalPageProps> = ({ 
     try {
       await api.verifyRegistration(regEmail, regOtpCode);
       setRegStep('success');
-      setSimulatedRegBox(null);
     } catch (err: any) {
       setRegError(err.message || 'Código de verificação inválido ou expirado.');
     } finally {
@@ -310,7 +317,6 @@ export const GuestInstitutionalPage: React.FC<GuestInstitutionalPageProps> = ({ 
                 onClick={() => {
                   setLoginOtpSent(false);
                   setLoginError('');
-                  setSimulatedOtpBox(null);
                   setActiveSubTab('login');
                 }}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -325,7 +331,6 @@ export const GuestInstitutionalPage: React.FC<GuestInstitutionalPageProps> = ({ 
                 onClick={() => {
                   setRegStep('form');
                   setRegError('');
-                  setSimulatedRegBox(null);
                   setActiveSubTab('cadastro');
                 }}
                 className={`px-4 py-2 rounded-lg text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors ${
@@ -564,7 +569,6 @@ export const GuestInstitutionalPage: React.FC<GuestInstitutionalPageProps> = ({ 
                     setLoginMode('email');
                     setLoginError('');
                     setLoginOtpSent(false);
-                    setSimulatedOtpBox(null);
                   }}
                   className={`py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                     loginMode === 'email'
@@ -580,7 +584,6 @@ export const GuestInstitutionalPage: React.FC<GuestInstitutionalPageProps> = ({ 
                     setLoginMode('phone');
                     setLoginError('');
                     setLoginOtpSent(false);
-                    setSimulatedOtpBox(null);
                   }}
                   className={`py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                     loginMode === 'phone'
@@ -679,7 +682,7 @@ export const GuestInstitutionalPage: React.FC<GuestInstitutionalPageProps> = ({ 
                     <form onSubmit={handleVerifyOtp} className="space-y-4">
                       <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900 rounded-xl text-emerald-800 dark:text-emerald-200 text-xs font-semibold flex items-center gap-2 leading-relaxed">
                         <span className="text-lg">💬</span>
-                        <span>Código de segurança enviado via WhatsApp API para o seu número. Verifique suas mensagens.</span>
+                        <span>Código de segurança enviado via WhatsApp para o seu número. Verifique suas mensagens.</span>
                       </div>
 
                       <div>
@@ -748,7 +751,24 @@ export const GuestInstitutionalPage: React.FC<GuestInstitutionalPageProps> = ({ 
 
               {/* STEP 1: Registration Form */}
               {regStep === 'form' && (
-                <form onSubmit={handleRegisterCompany} className="space-y-4">
+                <>
+                  {showTerms ? (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+                      <div className="bg-white dark:bg-slate-900 p-6 rounded-xl max-w-lg w-full max-h-[80vh] overflow-y-auto">
+                        <TermsOfUse />
+                        <button onClick={() => setShowTerms(false)} className="mt-4 w-full py-2 bg-slate-200 rounded-lg font-bold">Fechar</button>
+                      </div>
+                    </div>
+                  ) : null}
+                  {showPrivacy ? (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+                      <div className="bg-white dark:bg-slate-900 p-6 rounded-xl max-w-lg w-full max-h-[80vh] overflow-y-auto">
+                        <PrivacyPolicy />
+                        <button onClick={() => setShowPrivacy(false)} className="mt-4 w-full py-2 bg-slate-200 rounded-lg font-bold">Fechar</button>
+                      </div>
+                    </div>
+                  ) : null}
+                  <form onSubmit={handleRegisterCompany} className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Nome Fantasia da Empresa *</label>
@@ -864,6 +884,29 @@ export const GuestInstitutionalPage: React.FC<GuestInstitutionalPageProps> = ({ 
                     </div>
                   </div>
 
+                  <div className="space-y-2 pt-2">
+                    <label className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-400">
+                      <input 
+                        type="checkbox" 
+                        required
+                        checked={regTermsAccepted} 
+                        onChange={e => setRegTermsAccepted(e.target.checked)}
+                        className="mt-0.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span>Li e concordo com os <button type="button" onClick={() => setShowTerms(true)} className="text-emerald-600 hover:underline font-bold">Termos de Uso</button></span>
+                    </label>
+                    <label className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-400">
+                      <input 
+                        type="checkbox" 
+                        required
+                        checked={regPrivacyAccepted} 
+                        onChange={e => setRegPrivacyAccepted(e.target.checked)}
+                        className="mt-0.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span>Li e concordo com a <button type="button" onClick={() => setShowPrivacy(true)} className="text-emerald-600 hover:underline font-bold">Política de Privacidade</button></span>
+                    </label>
+                  </div>
+
                   <div className="pt-2">
                     <button
                       type="submit"
@@ -874,28 +917,15 @@ export const GuestInstitutionalPage: React.FC<GuestInstitutionalPageProps> = ({ 
                     </button>
                   </div>
                 </form>
+                </>
               )}
 
               {/* STEP 2: Verification of registration */}
               {regStep === 'verify' && (
                 <form onSubmit={handleVerifyRegistration} className="space-y-4">
-                  {simulatedRegBox && (
-                    <div className="space-y-2 mb-4">
-                      <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-blue-800 text-xs font-semibold flex flex-col gap-1 leading-relaxed">
-                        <span className="flex items-center gap-1 font-bold">📧 Confirmação de Acesso Enviada por E-mail</span>
-                        <span className="text-slate-700 font-medium">Seu código de confirmação corporativa é: <strong className="text-blue-700 font-mono text-sm tracking-wider bg-white px-2 py-0.5 rounded-sm border border-blue-200">{simulatedRegBox}</strong></span>
-                      </div>
-                      
-                      <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-800 text-xs font-semibold flex flex-col gap-1 leading-relaxed">
-                        <span className="flex items-center gap-1 font-bold">💬 Confirmação de Cadastro Enviada no WhatsApp</span>
-                        <span className="text-slate-700 font-medium">Insira o código enviado para o número {regPhone}: <strong className="text-emerald-700 font-mono text-sm tracking-wider bg-white px-2 py-0.5 rounded-sm border border-emerald-200">{simulatedRegBox}</strong></span>
-                      </div>
-                    </div>
-                  )}
-
                   <div className="text-center space-y-2 mb-6">
                     <p className="text-sm text-slate-600 leading-relaxed">
-                      Enviamos um código de segurança de 6 dígitos para o e-mail <strong>{regEmail}</strong> e celular <strong>{regPhone}</strong> do responsável. Insira-o abaixo para confirmar o cadastro da sua empresa.
+                      Enviamos um código de segurança de 6 dígitos para o e-mail <strong>{regEmail}</strong> e WhatsApp <strong>{regPhone}</strong> do responsável. Insira-o abaixo para confirmar o cadastro da sua empresa.
                     </p>
                   </div>
 

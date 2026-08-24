@@ -1,8 +1,19 @@
 version: '3.8'
 
+# ==============================================================================
+# 🚚 ELO LOG - PORTAINER STACK COMPOSE (POSTGRESQL + MULTI-TENANT + COMPRESSÃO)
+# ==============================================================================
+# Como implantar no Portainer:
+# 1. No painel do Portainer, vá em: Stacks -> Add stack
+# 2. Nome da Stack: "elo-log"
+# 3. No campo "Web editor", cole todo o conteúdo deste arquivo.
+# 4. Ajuste as variáveis em "Environment variables" se desejar personalizar senhas.
+# 5. Clique em "Deploy the stack". O banco e as tabelas serão criados sozinhos!
+# ==============================================================================
+
 services:
   # ============================================================================
-  # BANCO DE DADOS RELACIONAL SQL (POSTGRESQL 16)
+  # BANCO DE DADOS SQL (POSTGRESQL 16)
   # ============================================================================
   postgres:
     image: postgres:16-alpine
@@ -15,7 +26,6 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./server/db/schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
       - "127.0.0.1:${DB_PORT:-5432}:5432"
     networks:
@@ -27,19 +37,18 @@ services:
       retries: 10
 
   # ============================================================================
-  # APLICAÇÃO ELO LOG (SAAS MULTI-TENANT + COMPRESSÃO DE IMAGENS)
+  # APLICAÇÃO ELO LOG (SAAS MULTI-TENANT COM COMPRESSÃO E API)
   # ============================================================================
   elo-log:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: node:20-alpine
     container_name: elo-log-app
     restart: unless-stopped
+    working_dir: /app
+    command: sh -c "npm install --production=false && npm run build && npm start"
     depends_on:
       postgres:
         condition: service_healthy
     ports:
-      # Mapeia a porta interna 3000 do container para a porta 3000 (ou outra porta livre) da sua VPS
       - "${APP_PORT:-3000}:3000"
     environment:
       - NODE_ENV=production
@@ -53,24 +62,22 @@ services:
       - DB_USER=${DB_USER:-elolog_user}
       - DB_PASSWORD=${DB_PASSWORD:-elolog_secret_password_2026}
       - DATABASE_URL=postgresql://${DB_USER:-elolog_user}:${DB_PASSWORD:-elolog_secret_password_2026}@postgres:5432/${DB_NAME:-elolog}
-      # Compressão Automática de Imagens
+      # Otimização e Compressão de Fotos / Imagens
       - IMAGE_COMPRESSION_ENABLED=true
       - IMAGE_QUALITY=0.8
       - IMAGE_MAX_WIDTH=1600
       - IMAGE_MAX_HEIGHT=1600
+      # Integrações Opcionais
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - WHATSAPP_API_URL=${WHATSAPP_API_URL:-}
+      - WHATSAPP_API_TOKEN=${WHATSAPP_API_TOKEN:-}
     networks:
       - elo-log-network
-      # Caso use um proxy reverso global rodando em outra rede, descomente a rede abaixo:
-      # - proxy-network
 
 networks:
   elo-log-network:
     name: elo-log-network
     driver: bridge
-  # Caso use rede externa para conectar com Nginx Proxy Manager, Traefik ou Caddy, descomente abaixo:
-  # proxy-network:
-  #   external: true
 
 volumes:
   postgres_data:

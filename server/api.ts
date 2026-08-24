@@ -1,6 +1,10 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { db } from './db';
+import { sqlAdapter } from './db/sqlAdapter';
 import webpush from 'web-push';
+import nodemailer from 'nodemailer';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { 
   User, 
   FreightStatus, 
@@ -12,9 +16,12 @@ import {
   FormResponse,
   UserRole,
   WhatsAppConfig,
-  TripExpenseReport
+  TripExpenseReport,
+  WebPage,
+  BlogPost
 } from '../src/types';
 
+const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_key_change_me_in_production';
 export const apiRouter = Router();
 
 const publicVapidKey = process.env.VAPID_PUBLIC_KEY || 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYPE5NjhF0';
@@ -66,37 +73,135 @@ const VALID_STATUS_TRANSITIONS: Record<FreightStatus, FreightStatus[]> = {
 // Auth / Identity Middleware
 export function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
-  let userId: string | undefined;
+  const path = req.path;
+
+  // Explicit public / unauthenticated routes
+  const publicPaths = [
+    '/auth/login',
+    '/auth/request-otp',
+    '/auth/verify-otp',
+    '/auth/register-company',
+    '/auth/verify-registration',
+    '/auth/register-driver',
+    '/auth/switch-demo',
+    '/health'
+  ];
+
+  const isPublicRoute = 
+    publicPaths.includes(path) || 
+    (path === '/saas/config' && req.method === 'GET') ||
+    (path === '/push/vapid-key' && req.method === 'GET');
 
   if (authHeader && authHeader.startsWith('Bearer ')) {
-    userId = authHeader.split(' ')[1];
-  } else if (req.headers['x-user-id']) {
-    userId = req.headers['x-user-id'] as string;
-  }
+    const token = authHeader.split(' ')[1]?.trim();
+    
+    if (token) {
+      // 1. Attempt JWT verification
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+        const foundUser = db.users.find(u => u.id === decoded.userId);
+        
+        if (foundUser) {
+          req.user = foundUser;
+          req.tenant = foundUser.tenantId ? db.tenants.find(t => t.id === foundUser.tenantId) || null : null;
+          return next();
+        }
+      } catch (err) {
+        // Fall through to direct user id check
+      }
 
-  // If no auth provided, default to Super Admin or first company admin for convenience in dev
-  if (!userId) {
-    req.user = db.users[0]; // superadmin
-  } else {
-    const foundUser = db.users.find(u => u.id === userId || u.email === userId);
-    if (foundUser) {
-      req.user = foundUser;
-    } else {
-      req.user = db.users[0];
+      // 2. Direct user ID check (e.g. initial demo switch fallback)
+      const directUser = db.users.find(u => u.id === token);
+      if (directUser) {
+        req.user = directUser;
+        req.tenant = directUser.tenantId ? db.tenants.find(t => t.id === directUser.tenantId) || null : null;
+        return next();
+      }
+
+      // If token provided was invalid and route is not public, reject
+      if (!isPublicRoute) {
+        return res.status(401).json({ error: 'Token inválido ou expirado' });
+      }
     }
   }
 
-  if (req.user && req.user.tenantId) {
-    req.tenant = db.tenants.find(t => t.id === req.user?.tenantId) || null;
-  } else {
-    req.tenant = null;
+  // Allow public routes through without user
+  if (isPublicRoute) {
+    return next();
   }
 
-  next();
+  return res.status(401).json({ error: 'Não autenticado' });
+}
+
+// Helper to safely strip sensitive credentials before returning User object to client
+export function sanitizeUser(user?: User | null): any {
+  if (!user) return user;
+  const { password, ...safeUser } = user as any;
+  return safeUser;
 }
 
 // Apply auth middleware to all /api routes
 apiRouter.use(authMiddleware);
+
+// Get Pages for current Tenant
+apiRouter.get('/pages', (req: AuthenticatedRequest, res: Response) => {
+  if (!req.tenant) return res.status(403).json({ error: 'Tenant não identificado' });
+  const pages = db.pages.filter(p => p.tenantId === req.tenant?.id);
+  res.json(pages);
+});
+
+// Create Page (Authorized Admins / Super Admins only)
+apiRouter.post('/pages', (req: AuthenticatedRequest, res: Response) => {
+  if (!req.tenant) return res.status(403).json({ error: 'Tenant não identificado' });
+  if (['MOTORISTA', 'USUARIO'].includes(req.user?.role || '')) {
+    return res.status(403).json({ error: 'Permissão insuficiente para criar páginas institucionais' });
+  }
+
+  const { title, slug, content } = req.body;
+  const newPage: WebPage = {
+    id: `page-${Date.now()}`,
+    tenantId: req.tenant.id,
+    slug,
+    title,
+    content,
+    isPublished: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  db.pages.push(newPage);
+  res.status(201).json(newPage);
+});
+
+// Get Posts for current Tenant
+apiRouter.get('/posts', (req: AuthenticatedRequest, res: Response) => {
+  if (!req.tenant) return res.status(403).json({ error: 'Tenant não identificado' });
+  const posts = db.posts.filter(p => p.tenantId === req.tenant?.id);
+  res.json(posts);
+});
+
+// Create Post (Authorized Admins / Super Admins only)
+apiRouter.post('/posts', (req: AuthenticatedRequest, res: Response) => {
+  if (!req.tenant) return res.status(403).json({ error: 'Tenant não identificado' });
+  if (['MOTORISTA', 'USUARIO'].includes(req.user?.role || '')) {
+    return res.status(403).json({ error: 'Permissão insuficiente para publicar artigos no blog' });
+  }
+
+  const { title, slug, content, author } = req.body;
+  const newPost: BlogPost = {
+    id: `post-${Date.now()}`,
+    tenantId: req.tenant.id,
+    slug,
+    title,
+    content,
+    author: author || req.user?.name || 'Administrador',
+    isPublished: true,
+    publishedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  db.posts.push(newPost);
+  res.status(201).json(newPost);
+});
 
 /* =========================================================================
    1. AUTH & USER IDENTITY
@@ -119,7 +224,7 @@ apiRouter.get('/auth/me', (req: AuthenticatedRequest, res: Response) => {
   }
 
   res.json({
-    user: req.user,
+    user: sanitizeUser(req.user),
     tenant: req.tenant,
     driver: driverProfile,
     vehicles: driverVehicles,
@@ -135,7 +240,7 @@ apiRouter.get('/auth/me', (req: AuthenticatedRequest, res: Response) => {
 });
 
 // Login endpoint
-apiRouter.post('/auth/login', (req: AuthenticatedRequest, res: Response) => {
+apiRouter.post('/auth/login', async (req: AuthenticatedRequest, res: Response) => {
   const { email, role, password } = req.body;
   
   let targetUser = db.users.find(u => u.email.toLowerCase() === (email || '').toLowerCase());
@@ -153,12 +258,21 @@ apiRouter.post('/auth/login', (req: AuthenticatedRequest, res: Response) => {
     return res.status(403).json({ error: 'Seu cadastro foi realizado com sucesso, mas ainda não foi liberado. Aguarde a aprovação do Super Administrador.' });
   }
 
-  // Validate password if present on the user (and it's not a demo switcher shortcut without password)
-  if (targetUser.password && password && targetUser.password !== password) {
-    return res.status(401).json({ error: 'Senha incorreta.' });
+  // Validate password if present on the user (support bcrypt hash or fallback to direct compare for legacy)
+  if (targetUser.password) {
+    if (!password) {
+      return res.status(401).json({ error: 'Senha é obrigatória para este usuário.' });
+    }
+    const isMatch = await bcrypt.compare(password, targetUser.password).catch(() => false) || targetUser.password === password;
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Senha incorreta.' });
+    }
   }
 
   targetUser.lastLoginAt = new Date().toISOString();
+
+  // Generate JWT
+  const token = jwt.sign({ userId: targetUser.id }, JWT_SECRET, { expiresIn: '24h' });
 
   db.addAuditLog({
     tenantId: targetUser.tenantId || undefined,
@@ -173,13 +287,47 @@ apiRouter.post('/auth/login', (req: AuthenticatedRequest, res: Response) => {
   });
 
   res.json({
-    user: targetUser,
-    token: targetUser.id
+    user: sanitizeUser(targetUser),
+    token: token
   });
 });
 
-// Active WhatsApp Login OTPs Map
-const activeOTPs = new Map<string, { code: string; expiresAt: number }>();
+// Switch Demo Profile Endpoint (Always returns fresh signed JWT with sanitized user)
+apiRouter.post('/auth/switch-demo', (req: AuthenticatedRequest, res: Response) => {
+  const { userId } = req.body;
+  if (!userId) {
+    return res.status(400).json({ error: 'userId é obrigatório.' });
+  }
+
+  const targetUser = db.users.find(u => u.id === userId);
+  if (!targetUser) {
+    return res.status(404).json({ error: 'Usuário de demonstração não encontrado.' });
+  }
+
+  targetUser.lastLoginAt = new Date().toISOString();
+  const token = jwt.sign({ userId: targetUser.id }, JWT_SECRET, { expiresIn: '24h' });
+
+  const tenant = targetUser.tenantId ? db.tenants.find(t => t.id === targetUser.tenantId) || null : null;
+  let driver = null;
+  let vehicles: any[] = [];
+  if (targetUser.role === 'MOTORISTA') {
+    driver = db.drivers.find(d => d.userId === targetUser.id) || null;
+    if (driver) {
+      vehicles = db.vehicles.filter(v => v.driverId === driver.id);
+    }
+  }
+
+  res.json({
+    user: sanitizeUser(targetUser),
+    tenant,
+    driver,
+    vehicles,
+    token
+  });
+});
+
+// Active WhatsApp Login OTPs Map with rate limiting & attempt tracking
+const activeOTPs = new Map<string, { code: string; expiresAt: number; failedAttempts?: number }>();
 
 // Pending registration OTPs Map
 const pendingRegistrations = new Map<string, {
@@ -191,6 +339,8 @@ const pendingRegistrations = new Map<string, {
   email: string;
   phone: string;
   password?: string;
+  termsAccepted?: boolean;
+  privacyAccepted?: boolean;
 }>();
 
 // Request WhatsApp OTP for Login
@@ -202,9 +352,13 @@ apiRouter.post('/auth/request-otp', async (req: AuthenticatedRequest, res: Respo
 
   // Clean phone string to match digits
   const cleanPhone = phone.replace(/\D/g, '');
+  if (cleanPhone.length < 8) {
+    return res.status(400).json({ error: 'Número de telefone inválido (mínimo de 8 dígitos).' });
+  }
+
   const targetUser = db.users.find(u => {
     const cleanUserPhone = u.phone.replace(/\D/g, '');
-    return cleanUserPhone.endsWith(cleanPhone) || cleanPhone.endsWith(cleanUserPhone);
+    return cleanUserPhone === cleanPhone || (cleanUserPhone.length >= 8 && cleanPhone.length >= 8 && (cleanUserPhone.endsWith(cleanPhone) || cleanPhone.endsWith(cleanUserPhone)));
   });
 
   if (!targetUser) {
@@ -219,7 +373,12 @@ apiRouter.post('/auth/request-otp', async (req: AuthenticatedRequest, res: Respo
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
 
-  activeOTPs.set(cleanPhone, { code, expiresAt });
+  const cleanUserPhone = targetUser.phone.replace(/\D/g, '');
+  activeOTPs.set(cleanPhone, { code, expiresAt, failedAttempts: 0 });
+  if (cleanUserPhone !== cleanPhone) {
+    activeOTPs.set(cleanUserPhone, { code, expiresAt, failedAttempts: 0 });
+  }
+  activeOTPs.set(targetUser.id, { code, expiresAt, failedAttempts: 0 });
 
   const tenantId = targetUser.tenantId || 'tenant-translog-01';
   const config = db.whatsappConfigs.get(tenantId) || db.globalWhatsAppConfig;
@@ -257,7 +416,21 @@ apiRouter.post('/auth/verify-otp', (req: AuthenticatedRequest, res: Response) =>
   }
 
   const cleanPhone = phone.replace(/\D/g, '');
-  const activeOtp = activeOTPs.get(cleanPhone);
+  if (cleanPhone.length < 8) {
+    return res.status(400).json({ error: 'Número de telefone inválido.' });
+  }
+
+  const targetUser = db.users.find(u => {
+    const cleanUserPhone = u.phone.replace(/\D/g, '');
+    return cleanUserPhone === cleanPhone || (cleanUserPhone.length >= 8 && cleanPhone.length >= 8 && (cleanUserPhone.endsWith(cleanPhone) || cleanPhone.endsWith(cleanUserPhone)));
+  });
+
+  if (!targetUser) {
+    return res.status(404).json({ error: 'Usuário não encontrado para este telefone.' });
+  }
+
+  const cleanUserPhone = targetUser.phone.replace(/\D/g, '');
+  const activeOtp = activeOTPs.get(cleanPhone) || activeOTPs.get(cleanUserPhone) || activeOTPs.get(targetUser.id);
 
   if (!activeOtp) {
     return res.status(400).json({ error: 'Nenhum código ativo encontrado para este telefone. Solicite um novo código.' });
@@ -265,26 +438,31 @@ apiRouter.post('/auth/verify-otp', (req: AuthenticatedRequest, res: Response) =>
 
   if (Date.now() > activeOtp.expiresAt) {
     activeOTPs.delete(cleanPhone);
+    activeOTPs.delete(cleanUserPhone);
+    activeOTPs.delete(targetUser.id);
     return res.status(400).json({ error: 'Código de verificação expirou (validade de 5 minutos).' });
   }
 
-  if (activeOtp.code !== code) {
-    return res.status(400).json({ error: 'Código de verificação inválido.' });
+  if (activeOtp.code !== String(code).trim()) {
+    activeOtp.failedAttempts = (activeOtp.failedAttempts || 0) + 1;
+    if (activeOtp.failedAttempts >= 5) {
+      activeOTPs.delete(cleanPhone);
+      activeOTPs.delete(cleanUserPhone);
+      activeOTPs.delete(targetUser.id);
+      return res.status(429).json({ error: 'Muitas tentativas incorretas. Código bloqueado. Solicite um novo código.' });
+    }
+    return res.status(400).json({ error: `Código de verificação inválido. Tentativa ${activeOtp.failedAttempts}/5.` });
   }
 
   // Successful verification
   activeOTPs.delete(cleanPhone);
-
-  const targetUser = db.users.find(u => {
-    const cleanUserPhone = u.phone.replace(/\D/g, '');
-    return cleanUserPhone.endsWith(cleanPhone) || cleanPhone.endsWith(cleanUserPhone);
-  });
-
-  if (!targetUser) {
-    return res.status(404).json({ error: 'Usuário não encontrado.' });
-  }
+  activeOTPs.delete(cleanUserPhone);
+  activeOTPs.delete(targetUser.id);
 
   targetUser.lastLoginAt = new Date().toISOString();
+
+  // Generate JWT token
+  const token = jwt.sign({ userId: targetUser.id }, JWT_SECRET, { expiresIn: '24h' });
 
   db.addAuditLog({
     tenantId: targetUser.tenantId || undefined,
@@ -298,17 +476,17 @@ apiRouter.post('/auth/verify-otp', (req: AuthenticatedRequest, res: Response) =>
   });
 
   res.json({
-    user: targetUser,
-    token: targetUser.id
+    user: sanitizeUser(targetUser),
+    token: token
   });
 });
 
 // Register Company (Tenant + Admin User in PENDENTE state)
 apiRouter.post('/auth/register-company', (req: AuthenticatedRequest, res: Response) => {
-  const { companyName, cnpj, responsibleName, email, phone, password } = req.body;
+  const { companyName, cnpj, responsibleName, email, phone, password, termsAccepted, privacyAccepted } = req.body;
 
-  if (!companyName || !cnpj || !responsibleName || !email || !phone || !password) {
-    return res.status(400).json({ error: 'Preencha todos os campos obrigatórios.' });
+  if (!companyName || !cnpj || !responsibleName || !email || !phone || !password || !termsAccepted || !privacyAccepted) {
+    return res.status(400).json({ error: 'Preencha todos os campos obrigatórios e aceite os termos.' });
   }
 
   // Check if email already registered
@@ -336,35 +514,30 @@ apiRouter.post('/auth/register-company', (req: AuthenticatedRequest, res: Respon
     responsibleName,
     email,
     phone,
-    password
+    password,
+    termsAccepted,
+    privacyAccepted
   });
 
-  // Simulation: write simulated SMS/WhatsApp and email into global notification store
-  db.addNotification({
-    tenantId: null,
-    title: '📧 Verificação de E-mail',
-    message: `Enviado para ${email}: Olá ${responsibleName}, use o código ${code} para verificar seu cadastro na Elo Log.`,
-    type: 'SISTEMA',
-    userId: 'user-superadmin'
-  });
-
-  db.addNotification({
-    tenantId: null,
-    title: '💬 Verificação de WhatsApp',
-    message: `Enviado para ${phone}: Olá ${responsibleName}, use o código ${code} para confirmar seu cadastro na Elo Log.`,
-    type: 'SISTEMA',
-    userId: 'user-superadmin'
-  });
+  // Attempt real WhatsApp dispatch if gateway configured
+  const cleanPhone = phone.replace(/\D/g, '');
+  const config = db.globalWhatsAppConfig;
+  if (config?.baseUrl && config?.token && config?.isActive) {
+    sendToWhatsAppGateway(config, {
+      number: cleanPhone,
+      body: `🚚 [ELO LOG] Olá ${responsibleName}, seu código de verificação para o cadastro da empresa ${companyName} é: *${code}*.`,
+      externalKey: `reg-wa-${Date.now()}`
+    }).catch(err => console.error('WhatsApp reg err:', err));
+  }
 
   res.json({
     success: true,
-    message: 'Código de verificação enviado para o e-mail e WhatsApp do responsável!',
-    demoCode: code
+    message: 'Código de verificação enviado para o e-mail e WhatsApp do responsável!'
   });
 });
 
 // Verify Registration Code and complete creation in PENDENTE state
-apiRouter.post('/auth/verify-registration', (req: AuthenticatedRequest, res: Response) => {
+apiRouter.post('/auth/verify-registration', async (req: AuthenticatedRequest, res: Response) => {
   const { email, code } = req.body;
   if (!email || !code) {
     return res.status(400).json({ error: 'E-mail e código de verificação são obrigatórios.' });
@@ -390,6 +563,8 @@ apiRouter.post('/auth/verify-registration', (req: AuthenticatedRequest, res: Res
   const tenantId = `tenant-${Date.now()}`;
   const userId = `user-${Date.now()}`;
   const now = new Date().toISOString();
+  
+  const hashedPassword = pending.password ? await bcrypt.hash(pending.password, 10) : undefined;
 
   const newTenant: Tenant = {
     id: tenantId,
@@ -426,7 +601,9 @@ apiRouter.post('/auth/verify-registration', (req: AuthenticatedRequest, res: Res
     phone: pending.phone,
     role: 'EMPRESA_SUPER_ADMIN', // Owner of the tenant
     status: 'PENDENTE', // Crucial: Starts as PENDENTE
-    password: pending.password,
+    password: hashedPassword,
+    termsAcceptedAt: now,
+    privacyAcceptedAt: now,
     createdAt: now
   };
 
@@ -462,7 +639,7 @@ apiRouter.post('/auth/verify-registration', (req: AuthenticatedRequest, res: Res
 });
 
 // Register new Driver from public portal
-apiRouter.post('/auth/register-driver', (req: AuthenticatedRequest, res: Response) => {
+apiRouter.post('/auth/register-driver', async (req: AuthenticatedRequest, res: Response) => {
   const { 
     name, 
     email, 
@@ -485,7 +662,8 @@ apiRouter.post('/auth/register-driver', (req: AuthenticatedRequest, res: Respons
     vehicleRenavam,
     capacityKg,
     bodyType,
-    tenantId
+    tenantId,
+    password
   } = req.body;
 
   if (!name || !email || !phone || !cpf || !cnh) {
@@ -500,6 +678,8 @@ apiRouter.post('/auth/register-driver', (req: AuthenticatedRequest, res: Respons
   const newDriverId = `driver-${Date.now()}`;
   const newVehicleId = `vehicle-${Date.now()}`;
 
+  const hashedPassword = password ? await bcrypt.hash(password.trim(), 10) : undefined;
+
   const newUser: User = {
     id: newUserId,
     tenantId: assignedTenantId,
@@ -508,6 +688,7 @@ apiRouter.post('/auth/register-driver', (req: AuthenticatedRequest, res: Respons
     phone,
     role: 'MOTORISTA',
     status: 'ATIVO',
+    password: hashedPassword,
     driverId: newDriverId,
     lastLoginAt: now,
     createdAt: now
@@ -567,11 +748,13 @@ apiRouter.post('/auth/register-driver', (req: AuthenticatedRequest, res: Respons
     details: `Novo motorista auto-cadastrado com veículo ${vehicleType} (${vehiclePlate})`
   });
 
+  const token = jwt.sign({ userId: newUserId }, JWT_SECRET, { expiresIn: '24h' });
+
   res.status(201).json({
-    user: newUser,
+    user: sanitizeUser(newUser),
     driver: newDriver,
     vehicle: newVehicle,
-    token: newUserId
+    token: token
   });
 });
 
@@ -639,7 +822,10 @@ apiRouter.post('/tenants', (req: AuthenticatedRequest, res: Response) => {
 });
 
 apiRouter.put('/tenants/:id', (req: AuthenticatedRequest, res: Response) => {
-  if (req.user?.role !== 'SUPER_ADMIN' && req.user?.tenantId !== req.params.id) {
+  const isSuperAdmin = req.user?.role === 'SUPER_ADMIN';
+  const isCompanyAdmin = (req.user?.role === 'EMPRESA_SUPER_ADMIN' || req.user?.role === 'ADMIN') && req.user?.tenantId === req.params.id;
+
+  if (!isSuperAdmin && !isCompanyAdmin) {
     return res.status(403).json({ error: 'Sem permissão para editar esta empresa' });
   }
 
@@ -658,7 +844,12 @@ apiRouter.put('/tenants/:id', (req: AuthenticatedRequest, res: Response) => {
   if (neighborhood) tenant.neighborhood = neighborhood;
   if (city) tenant.city = city;
   if (state) tenant.state = state;
-  if (plan) {
+
+  // Security check: Only Super Admin can change plan limits and subscription status
+  if (plan && plan !== tenant.plan) {
+    if (!isSuperAdmin) {
+      return res.status(403).json({ error: 'Apenas o Super Administrador pode alterar o plano contratado da empresa.' });
+    }
     tenant.plan = plan;
     tenant.planLimits = {
       maxUsers: plan === 'EMPRESARIAL' ? 100 : plan === 'PROFISSIONAL' ? 25 : 5,
@@ -669,7 +860,11 @@ apiRouter.put('/tenants/:id', (req: AuthenticatedRequest, res: Response) => {
       prioritySupport: plan === 'EMPRESARIAL'
     };
   }
-  if (status) {
+
+  if (status && status !== tenant.status) {
+    if (!isSuperAdmin) {
+      return res.status(403).json({ error: 'Apenas o Super Administrador pode aprovar ou alterar o status operacional da empresa.' });
+    }
     tenant.status = status;
     // Auto-approve associated users when the tenant/company is approved
     if (status === 'ATIVA') {
@@ -729,20 +924,22 @@ apiRouter.delete('/tenants/:id', (req: AuthenticatedRequest, res: Response) => {
 
 apiRouter.get('/users', (req: AuthenticatedRequest, res: Response) => {
   if (req.user?.role === 'SUPER_ADMIN') {
-    return res.json(db.users);
+    return res.json(db.users.map(sanitizeUser));
   }
   // Company scoped
   const tenantUsers = db.users.filter(u => u.tenantId === req.user?.tenantId);
-  res.json(tenantUsers);
+  res.json(tenantUsers.map(sanitizeUser));
 });
 
-apiRouter.post('/users', (req: AuthenticatedRequest, res: Response) => {
-  const { name, email, phone, role, tenantId } = req.body;
+apiRouter.post('/users', async (req: AuthenticatedRequest, res: Response) => {
+  const { name, email, phone, role, tenantId, password } = req.body;
   const targetTenantId = req.user?.role === 'SUPER_ADMIN' ? (tenantId || db.tenants[0].id) : req.user?.tenantId;
 
   if (!name || !email) {
     return res.status(400).json({ error: 'Nome e e-mail são obrigatórios' });
   }
+
+  const hashedPassword = password && password.trim() ? await bcrypt.hash(password.trim(), 10) : undefined;
 
   const newUser: User = {
     id: `user-${Date.now()}`,
@@ -752,6 +949,7 @@ apiRouter.post('/users', (req: AuthenticatedRequest, res: Response) => {
     phone: phone || '',
     role: role || 'USUARIO',
     status: 'ATIVO',
+    password: hashedPassword,
     createdAt: new Date().toISOString()
   };
 
@@ -768,10 +966,10 @@ apiRouter.post('/users', (req: AuthenticatedRequest, res: Response) => {
     details: `Criado usuário ${newUser.name} com perfil ${newUser.role}`
   });
 
-  res.status(201).json(newUser);
+  res.status(201).json(sanitizeUser(newUser));
 });
 
-apiRouter.put('/users/:id', (req: AuthenticatedRequest, res: Response) => {
+apiRouter.put('/users/:id', async (req: AuthenticatedRequest, res: Response) => {
   const user = db.users.find(u => u.id === req.params.id);
   if (!user) {
     return res.status(404).json({ error: 'Usuário não encontrado' });
@@ -780,7 +978,7 @@ apiRouter.put('/users/:id', (req: AuthenticatedRequest, res: Response) => {
   // Security check: only Super Admin or Admin of same tenant, or user editing their own profile
   const isSuperAdmin = req.user?.role === 'SUPER_ADMIN';
   const isSelf = req.user?.id === user.id;
-  const isSameTenantAdmin = req.user?.role === 'ADMIN' && req.user?.tenantId === user.tenantId;
+  const isSameTenantAdmin = (req.user?.role === 'ADMIN' || req.user?.role === 'EMPRESA_SUPER_ADMIN') && req.user?.tenantId === user.tenantId;
 
   if (!isSuperAdmin && !isSelf && !isSameTenantAdmin) {
     return res.status(403).json({ error: 'Você não tem permissão para editar este usuário' });
@@ -791,7 +989,9 @@ apiRouter.put('/users/:id', (req: AuthenticatedRequest, res: Response) => {
   if (name) user.name = name;
   if (email) user.email = email;
   if (phone) user.phone = phone;
-  if (password) user.password = password;
+  if (password && password.trim()) {
+    user.password = await bcrypt.hash(password.trim(), 10);
+  }
 
   // Only admins can change role and status
   if ((isSuperAdmin || isSameTenantAdmin) && role) {
@@ -824,7 +1024,7 @@ apiRouter.put('/users/:id', (req: AuthenticatedRequest, res: Response) => {
     details: `Usuário ${user.name} atualizado com sucesso`
   });
 
-  res.json(user);
+  res.json(sanitizeUser(user));
 });
 
 apiRouter.delete('/users/:id', (req: AuthenticatedRequest, res: Response) => {
@@ -841,7 +1041,7 @@ apiRouter.delete('/users/:id', (req: AuthenticatedRequest, res: Response) => {
   }
 
   const isSuperAdmin = req.user?.role === 'SUPER_ADMIN';
-  const isSameTenantAdmin = req.user?.role === 'ADMIN' && req.user?.tenantId === targetUser.tenantId;
+  const isSameTenantAdmin = (req.user?.role === 'ADMIN' || req.user?.role === 'EMPRESA_SUPER_ADMIN') && req.user?.tenantId === targetUser.tenantId;
 
   if (!isSuperAdmin && !isSameTenantAdmin) {
     return res.status(403).json({ error: 'Você não tem permissão para excluir este usuário' });
@@ -864,7 +1064,7 @@ apiRouter.delete('/users/:id', (req: AuthenticatedRequest, res: Response) => {
 });
 
 // Update own profile
-apiRouter.put('/auth/profile', (req: AuthenticatedRequest, res: Response) => {
+apiRouter.put('/auth/profile', async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) {
     return res.status(401).json({ error: 'Não autenticado' });
   }
@@ -878,7 +1078,9 @@ apiRouter.put('/auth/profile', (req: AuthenticatedRequest, res: Response) => {
   if (name) user.name = name;
   if (email) user.email = email;
   if (phone) user.phone = phone;
-  if (password) user.password = password;
+  if (password && password.trim()) {
+    user.password = await bcrypt.hash(password.trim(), 10);
+  }
 
   user.updatedAt = new Date().toISOString();
 
@@ -911,7 +1113,7 @@ apiRouter.put('/auth/profile', (req: AuthenticatedRequest, res: Response) => {
 
   res.json({
     success: true,
-    user,
+    user: sanitizeUser(user),
     driver: updatedDriver
   });
 });
@@ -2234,7 +2436,22 @@ apiRouter.post('/push/test', async (req: AuthenticatedRequest, res: Response) =>
 
 // SaaS Global Configuration Endpoints
 apiRouter.get('/saas/config', (req: AuthenticatedRequest, res: Response) => {
-  res.json(db.saasGlobalConfig);
+  const isSuperAdmin = req.user?.role === 'SUPER_ADMIN';
+  const rawConfig = db.saasGlobalConfig;
+
+  // Mask sensitive SMTP credentials for non-superadmins or public visitors
+  if (!isSuperAdmin && rawConfig.emailConfig) {
+    const safeConfig = {
+      ...rawConfig,
+      emailConfig: {
+        ...rawConfig.emailConfig,
+        password: rawConfig.emailConfig.password ? '********' : ''
+      }
+    };
+    return res.json(safeConfig);
+  }
+
+  res.json(rawConfig);
 });
 
 apiRouter.post('/saas/config', (req: AuthenticatedRequest, res: Response) => {
@@ -2247,10 +2464,25 @@ apiRouter.post('/saas/config', (req: AuthenticatedRequest, res: Response) => {
     return res.status(400).json({ error: 'Configuração inválida.' });
   }
 
+  // Preserve existing SMTP password if masked value was sent back
+  let emailConfig = newConfig.emailConfig;
+  if (emailConfig && emailConfig.password === '********') {
+    emailConfig = {
+      ...emailConfig,
+      password: db.saasGlobalConfig.emailConfig?.password || ''
+    };
+  }
+
   db.saasGlobalConfig = {
     ...db.saasGlobalConfig,
-    ...newConfig
+    ...newConfig,
+    emailConfig: emailConfig || db.saasGlobalConfig.emailConfig
   };
+
+  // Sync database config with sqlAdapter if provided
+  if (newConfig.databaseConfig) {
+    sqlAdapter.updateConfig(newConfig.databaseConfig);
+  }
 
   db.addAuditLog({
     tenantId: undefined,
@@ -2267,6 +2499,103 @@ apiRouter.post('/saas/config', (req: AuthenticatedRequest, res: Response) => {
 });
 
 /* =========================================================================
+   13.1. SQL DATABASE & INSTALLATION MANAGEMENT (SUPER_ADMIN ONLY)
+   ========================================================================= */
+
+// Get SQL database status, connection health, and table counts
+apiRouter.get('/database/status', async (req: AuthenticatedRequest, res: Response) => {
+  if (req.user?.role !== 'SUPER_ADMIN') {
+    return res.status(403).json({ error: 'Acesso restrito ao Super Administrador.' });
+  }
+
+  try {
+    const status = await sqlAdapter.getStatus();
+    res.json({
+      success: true,
+      ...status,
+      imageCompression: db.saasGlobalConfig.imageCompression
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Test SQL connection with custom or stored credentials
+apiRouter.post('/database/test', async (req: AuthenticatedRequest, res: Response) => {
+  if (req.user?.role !== 'SUPER_ADMIN') {
+    return res.status(403).json({ error: 'Acesso restrito ao Super Administrador.' });
+  }
+
+  const customConfig = req.body || {};
+  const result = await sqlAdapter.testConnection(customConfig);
+  res.json(result);
+});
+
+// Execute SQL migration (Create all tables, indexes, seeds)
+apiRouter.post('/database/migrate', async (req: AuthenticatedRequest, res: Response) => {
+  if (req.user?.role !== 'SUPER_ADMIN') {
+    return res.status(403).json({ error: 'Acesso restrito ao Super Administrador.' });
+  }
+
+  const result = await sqlAdapter.runMigration();
+  if (result.success) {
+    db.addAuditLog({
+      tenantId: undefined,
+      userId: req.user!.id,
+      userName: req.user!.name,
+      userRole: req.user!.role,
+      action: 'MIGRATE_SQL_DATABASE',
+      entity: 'Database',
+      entityId: 'postgres',
+      details: 'Executou a migração completa do banco de dados SQL (todas as tabelas criadas/atualizadas).'
+    });
+  }
+
+  res.json(result);
+});
+
+// Get raw SQL schema script
+apiRouter.get('/database/schema', (req: AuthenticatedRequest, res: Response) => {
+  if (req.user?.role !== 'SUPER_ADMIN') {
+    return res.status(403).json({ error: 'Acesso restrito ao Super Administrador.' });
+  }
+
+  const sql = sqlAdapter.getSchemaSql();
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.send(sql);
+});
+
+// Generate dynamic SSH installer script
+apiRouter.get('/installation/ssh-script', (req: AuthenticatedRequest, res: Response) => {
+  const fs = require('fs');
+  const path = require('path');
+  const installScriptPath = path.join(process.cwd(), 'install.sh');
+  
+  if (fs.existsSync(installScriptPath)) {
+    const script = fs.readFileSync(installScriptPath, 'utf-8');
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.send(script);
+  } else {
+    res.status(404).send('#!/bin/bash\necho "install.sh not found"\n');
+  }
+});
+
+// Generate Portainer stack docker-compose YAML
+apiRouter.get('/installation/portainer-stack', (req: AuthenticatedRequest, res: Response) => {
+  const fs = require('fs');
+  const path = require('path');
+  const portainerPath = path.join(process.cwd(), 'docker-compose.portainer.yml');
+  
+  if (fs.existsSync(portainerPath)) {
+    const composeYaml = fs.readFileSync(portainerPath, 'utf-8');
+    res.setHeader('Content-Type', 'text/yaml; charset=utf-8');
+    res.send(composeYaml);
+  } else {
+    res.status(404).send('# docker-compose.portainer.yml not found');
+  }
+});
+
+/* =========================================================================
    14. TRIP EXPENSES & ACCOUNTABILITY (PRESTAÇÃO DE CONTAS ELO LOG)
    ========================================================================= */
 
@@ -2277,7 +2606,7 @@ apiRouter.get('/expenses', (req: AuthenticatedRequest, res: Response) => {
 
   if (req.user?.role === 'MOTORISTA') {
     // Drivers only see their own reports
-    list = list.filter(e => e.driverId === req.user?.id || (req.user?.name && e.driverName === req.user.name));
+    list = list.filter(e => e.driverId === req.user?.id || e.driverId === req.user?.driverId || (req.user?.name && e.driverName === req.user.name));
   } else if (req.user?.role !== 'SUPER_ADMIN') {
     // Tenant users see their company's reports
     list = list.filter(e => !e.tenantId || e.tenantId === req.user?.tenantId);
@@ -2305,8 +2634,15 @@ apiRouter.get('/expenses/:id', (req: AuthenticatedRequest, res: Response) => {
     return res.status(404).json({ error: 'Relatório de prestação de contas não encontrado' });
   }
 
-  if (req.user?.role === 'MOTORISTA' && report.driverId !== req.user?.id && report.driverName !== req.user?.name) {
-    return res.status(403).json({ error: 'Acesso não autorizado a este relatório' });
+  if (req.user?.role !== 'SUPER_ADMIN') {
+    if (req.user?.role === 'MOTORISTA') {
+      const isOwner = report.driverId === req.user?.id || report.driverId === req.user?.driverId || report.driverName === req.user?.name;
+      if (!isOwner) {
+        return res.status(403).json({ error: 'Acesso não autorizado a este relatório' });
+      }
+    } else if (report.tenantId && report.tenantId !== req.user?.tenantId) {
+      return res.status(403).json({ error: 'Acesso não autorizado a relatórios de outra empresa' });
+    }
   }
 
   res.json(report);
@@ -2318,6 +2654,10 @@ apiRouter.post('/expenses', (req: AuthenticatedRequest, res: Response) => {
   if (!data) {
     return res.status(400).json({ error: 'Dados da prestação de contas inválidos' });
   }
+
+  const assignedTenantId = req.user?.role === 'SUPER_ADMIN' 
+    ? (data.tenantId || db.tenants[0].id) 
+    : (req.user?.tenantId || data.tenantId || db.tenants[0].id);
 
   const items = Array.isArray(data.items) ? data.items : [];
   const totalExpenses = items.reduce((acc: number, it: any) => acc + (Number(it.amount) || 0), 0);
@@ -2338,10 +2678,10 @@ apiRouter.post('/expenses', (req: AuthenticatedRequest, res: Response) => {
 
   const newReport: TripExpenseReport = {
     id: `exp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-    tenantId: req.user?.tenantId || data.tenantId,
+    tenantId: assignedTenantId,
     freightId: data.freightId,
     freightCode: data.freightCode,
-    driverId: req.user?.role === 'MOTORISTA' ? req.user.id : (data.driverId || req.user?.id || 'driver-anon'),
+    driverId: req.user?.role === 'MOTORISTA' ? (req.user.driverId || req.user.id) : (data.driverId || req.user?.id || 'driver-anon'),
     driverName: req.user?.role === 'MOTORISTA' ? req.user.name : (data.driverName || req.user?.name || 'Motorista'),
     driverPhone: data.driverPhone || req.user?.phone,
     vehiclePlate: data.vehiclePlate,
@@ -2395,6 +2735,29 @@ apiRouter.put('/expenses/:id', (req: AuthenticatedRequest, res: Response) => {
   const existing = db.tripExpenses[index];
   const updates = req.body;
 
+  // Tenant isolation & authorization check
+  const isSuperAdmin = req.user?.role === 'SUPER_ADMIN';
+  const isCompanyStaff = (req.user?.role === 'ADMIN' || req.user?.role === 'EMPRESA_SUPER_ADMIN' || req.user?.role === 'SUPERVISOR') && (!existing.tenantId || existing.tenantId === req.user?.tenantId);
+  const isDriverOwner = req.user?.role === 'MOTORISTA' && (existing.driverId === req.user?.id || existing.driverId === req.user?.driverId || existing.driverName === req.user?.name);
+
+  if (!isSuperAdmin && !isCompanyStaff && !isDriverOwner) {
+    return res.status(403).json({ error: 'Você não tem permissão para editar este relatório' });
+  }
+
+  // Drivers cannot approve their own expenses or modify reviewer notes
+  if (req.user?.role === 'MOTORISTA') {
+    if (existing.status === 'APROVADO' || existing.status === 'QUITADO') {
+      return res.status(403).json({ error: 'Este relatório já foi aprovado/quitado e não pode mais ser alterado pelo motorista.' });
+    }
+    if (updates.status === 'APROVADO' || updates.status === 'QUITADO') {
+      return res.status(403).json({ error: 'Apenas a transportadora pode aprovar relatórios de despesas.' });
+    }
+    delete updates.reviewerNotes;
+    delete updates.approvedAt;
+    delete updates.reviewedBy;
+    delete updates.reviewedAt;
+  }
+
   const items = Array.isArray(updates.items) ? updates.items : existing.items;
   const totalExpenses = items.reduce((acc: number, it: any) => acc + (Number(it.amount) || 0), 0);
   const totalLiters = items
@@ -2431,7 +2794,7 @@ apiRouter.put('/expenses/:id', (req: AuthenticatedRequest, res: Response) => {
 
   if (updates.status === 'APROVADO' && existing.status !== 'APROVADO') {
     updatedReport.approvedAt = new Date().toISOString();
-    updatedReport.reviewedBy = req.user?.name;
+    updatedReport.reviewedBy = req.user?.name || 'Administrador';
     updatedReport.reviewedAt = new Date().toISOString();
   }
 
@@ -2459,6 +2822,16 @@ apiRouter.delete('/expenses/:id', (req: AuthenticatedRequest, res: Response) => 
   }
 
   const report = db.tripExpenses[index];
+
+  // Authorization check
+  const isSuperAdmin = req.user?.role === 'SUPER_ADMIN';
+  const isCompanyAdmin = (req.user?.role === 'ADMIN' || req.user?.role === 'EMPRESA_SUPER_ADMIN') && (!report.tenantId || report.tenantId === req.user?.tenantId);
+  const isDriverOwner = req.user?.role === 'MOTORISTA' && (report.driverId === req.user?.id || report.driverId === req.user?.driverId) && (report.status === 'RASCUNHO' || report.status === 'ENVIADO');
+
+  if (!isSuperAdmin && !isCompanyAdmin && !isDriverOwner) {
+    return res.status(403).json({ error: 'Você não tem permissão para excluir este relatório' });
+  }
+
   db.tripExpenses.splice(index, 1);
 
   db.addAuditLog({
@@ -2473,6 +2846,46 @@ apiRouter.delete('/expenses/:id', (req: AuthenticatedRequest, res: Response) => 
   });
 
   res.json({ success: true, message: 'Relatório excluído com sucesso' });
+});
+
+// Email Test Endpoint (Strictly Super Admin only to prevent unauthorized relay / SSRF)
+apiRouter.post('/integrations/email/test', async (req: AuthenticatedRequest, res: Response) => {
+  if (req.user?.role !== 'SUPER_ADMIN') {
+    return res.status(403).json({ success: false, message: 'Apenas o Super Administrador pode realizar testes de conexão SMTP.' });
+  }
+
+  const { host, port, user, password, senderEmail, testEmail } = req.body;
+  
+  if (!host || !port || !user || !senderEmail || !testEmail) {
+    return res.status(400).json({ success: false, message: 'Dados incompletos para teste SMTP.' });
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host,
+      port: Number(port),
+      secure: Number(port) === 465,
+      auth: {
+        user,
+        pass: password,
+      },
+    });
+
+    await transporter.verify();
+    
+    await transporter.sendMail({
+      from: senderEmail,
+      to: testEmail,
+      subject: 'Teste de Conexão SMTP Elo Log',
+      text: 'Olá! A conexão SMTP foi configurada com sucesso.',
+      html: '<b>Olá!</b> A conexão SMTP foi configurada com sucesso.',
+    });
+
+    res.json({ success: true, message: 'E-mail de teste enviado com sucesso!' });
+  } catch (err: any) {
+    console.error('SMTP Error:', err);
+    res.status(500).json({ success: false, message: `Erro ao conectar: ${err.message}` });
+  }
 });
 
 

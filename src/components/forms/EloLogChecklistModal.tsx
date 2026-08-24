@@ -4,6 +4,7 @@ import { api, isOfflineMode } from '../../services/api';
 import { WhatsAppConfigModal } from '../common/WhatsAppConfigModal';
 import { generateChecklistPdf } from '../../utils/checklistPdfGenerator';
 import { scanQrAndBarcodeFromCanvas, parseBrazilianPlateFromText } from '../../utils/barcodeAndPlateScanner';
+import { compressImageFile } from '../../utils/imageCompression';
 import { 
   X, 
   Printer, 
@@ -34,7 +35,8 @@ import {
   Share2,
   QrCode,
   Scan,
-  WifiOff
+  WifiOff,
+  Upload
 } from 'lucide-react';
 
 interface EloLogChecklistModalProps {
@@ -471,6 +473,7 @@ export const EloLogChecklistModal: React.FC<EloLogChecklistModalProps> = ({
     const chassiM = maskChassi(chassiVeiculo);
     const codeStr = freight?.code ? `Frete #${freight.code}` : `Talão Nº ${talaoNumber}`;
     const timestampStr = new Date().toLocaleString('pt-BR');
+    const appDomain = typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://portaldefretes.com.br';
 
     if (stage === 'RETIRADA') {
       const respNome = origemNome || 'Responsável Coleta';
@@ -493,6 +496,7 @@ export const EloLogChecklistModal: React.FC<EloLogChecklistModalProps> = ({
         `• Assinatura: ✅ Registrada e Bloqueada Digitalmente\n` +
         `• Fotos Anexadas: ${photos.length} fotos de vistoria\n\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🌐 *Acesso ao Portal:* ${appDomain}\n` +
         `🔒 *Comprovante autenticado no sistema ELO LOG.* Guarde este registro para conferência.`
       );
     } else {
@@ -514,6 +518,7 @@ export const EloLogChecklistModal: React.FC<EloLogChecklistModalProps> = ({
         `• Documento: ${respCpfM}\n` +
         `• Status: ✅ Vistoria Final Aprovada e Assinada\n\n` +
         `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `🌐 *Acesso ao Portal:* ${appDomain}\n` +
         `🔒 *Operação finalizada com sucesso no portal ELO LOG.*`
       );
     }
@@ -829,15 +834,21 @@ export const EloLogChecklistModal: React.FC<EloLogChecklistModalProps> = ({
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      Array.from(files).forEach((file: File) => {
-        const reader = new FileReader();
-        reader.onload = (uploadEvent) => {
-          if (uploadEvent.target?.result) {
-            setPhotos(prev => [...prev, uploadEvent.target!.result as string]);
-            setIsDirty(true);
-          }
-        };
-        reader.readAsDataURL(file);
+      Array.from(files).forEach(async (file: File) => {
+        try {
+          const compressed = await compressImageFile(file, { quality: 0.8, maxWidth: 1600, maxHeight: 1600 });
+          setPhotos(prev => [...prev, compressed]);
+          setIsDirty(true);
+        } catch {
+          const reader = new FileReader();
+          reader.onload = (uploadEvent) => {
+            if (uploadEvent.target?.result) {
+              setPhotos(prev => [...prev, uploadEvent.target!.result as string]);
+              setIsDirty(true);
+            }
+          };
+          reader.readAsDataURL(file);
+        }
       });
     }
     if (e.target) e.target.value = '';
@@ -2290,13 +2301,26 @@ export const EloLogChecklistModal: React.FC<EloLogChecklistModalProps> = ({
                   <button
                     type="button"
                     onClick={() => {
+                      handleStopCamera();
+                      fileInputRef.current?.click();
+                    }}
+                    className="px-3.5 py-2 bg-slate-800 text-slate-200 hover:text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                    title="Escolher imagem salva na galeria ou arquivos"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Galeria</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
                       setCameraFacing(prev => prev === 'environment' ? 'user' : 'environment');
                       handleStartCamera();
                     }}
                     className="px-3.5 py-2 bg-slate-800 text-slate-200 hover:text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Virar Câmera</span>
+                    <span>Virar</span>
                   </button>
 
                   <button

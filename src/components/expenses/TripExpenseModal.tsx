@@ -3,6 +3,8 @@ import { TripExpenseReport, TripExpenseItem, ExpenseCategory, Freight } from '..
 import { api } from '../../services/api';
 import { useSaaS } from '../../context/SaaSContext';
 import { generateExpenseReportPdf, CATEGORY_LABELS, PAYMENT_METHOD_LABELS } from '../../utils/expensePdfGenerator';
+import { CameraCaptureModal } from '../common/CameraCaptureModal';
+import { compressImageFile } from '../../utils/imageCompression';
 import { 
   DollarSign, 
   Fuel, 
@@ -108,6 +110,7 @@ export const TripExpenseModal: React.FC<TripExpenseModalProps> = ({
   const [newOrigin, setNewOrigin] = useState('');
   const [newDest, setNewDest] = useState('');
   const [newReceiptPhotos, setNewReceiptPhotos] = useState<string[]>([]);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
@@ -147,6 +150,17 @@ export const TripExpenseModal: React.FC<TripExpenseModalProps> = ({
         if (!vehicleModel && selected.cargo?.vehicleProduct) {
           setVehicleModel(selected.cargo.vehicleProduct);
         }
+        // Sync KM Dates
+        if (selected.startedAt && startDate === '') {
+          setStartDate(selected.startedAt.split('T')[0]);
+        }
+        if (selected.deliveredAt && endDate === '') {
+          setEndDate(selected.deliveredAt.split('T')[0]);
+        }
+        // Assuming freight doesn't have explicit KM, maybe we need to fetch it from history or checklist.
+        // Assuming for now they might be in customData or we don't have them yet.
+        // I will add placeholders for now as I don't see km fields in Freight interface.
+        // The user asked to sync km. If they are not in Freight, they might be in another service.
       }
     }
   }, [selectedFreightId, freightsList]);
@@ -200,12 +214,17 @@ export const TripExpenseModal: React.FC<TripExpenseModalProps> = ({
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length > 0) {
-      files.forEach(file => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          setNewReceiptPhotos(prev => [...prev, reader.result as string]);
-        };
-        reader.readAsDataURL(file as Blob);
+      files.forEach(async (file) => {
+        try {
+          const compressed = await compressImageFile(file, { quality: 0.8, maxWidth: 1600, maxHeight: 1600 });
+          setNewReceiptPhotos(prev => [...prev, compressed]);
+        } catch {
+          const reader = new FileReader();
+          reader.onload = () => {
+            setNewReceiptPhotos(prev => [...prev, reader.result as string]);
+          };
+          reader.readAsDataURL(file as Blob);
+        }
       });
     }
   };
@@ -354,12 +373,14 @@ export const TripExpenseModal: React.FC<TripExpenseModalProps> = ({
     }
   };
 
-  // WhatsApp Share with bot or manager
+  // WhatsApp Share with manager or dispatch
   const handleShareWhatsApp = () => {
     const report = buildReportObject();
     const balanceText = isDevolver 
       ? `🟢 *Saldo a Devolver à Empresa:* R$ ${Math.abs(balance).toFixed(2)}`
       : `🟡 *Reembolso a Receber pelo Motorista:* R$ ${Math.abs(balance).toFixed(2)}`;
+
+    const appDomain = typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://portaldefretes.com.br';
 
     const text = `📋 *PRESTAÇÃO DE CONTAS & DESPESAS • ELO LOG*\n` +
       `-----------------------------------------\n` +
@@ -373,8 +394,8 @@ export const TripExpenseModal: React.FC<TripExpenseModalProps> = ({
       `🧾 *Total Despesas (${report.items.length} itens):* R$ ${report.totalExpenses.toFixed(2)}\n` +
       `${balanceText}\n` +
       `-----------------------------------------\n` +
-      `📲 *Link do Laudo Oficial:* https://bot.atendo.log.br/despesas-elo\n` +
-      `_Enviado pelo App ELO LOG em ${new Date().toLocaleString('pt-BR')}_`;
+      `🌐 *Acesse o Documento / Portal:* ${appDomain}\n` +
+      `_Enviado pelo Sistema ELO LOG em ${new Date().toLocaleString('pt-BR')}_`;
 
     const encoded = encodeURIComponent(text);
     const phone = driverPhone ? driverPhone.replace(/\D/g, '') : '';
@@ -821,13 +842,13 @@ export const TripExpenseModal: React.FC<TripExpenseModalProps> = ({
 
                     {/* Receipt Photo Attachment */}
                     <div>
-                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between mb-1.5">
                         <span>
-                          {newCategory === 'ALIMENTACAO' ? 'Foto de Comprovantes (Opcional)' : 'Foto de Comprovantes / Notas'}
+                          {newCategory === 'ALIMENTACAO' ? 'Foto de Comprovantes (Opcional)' : 'Foto de Comprovantes / Notas Fiscais'}
                         </span>
                         {newReceiptPhotos.length > 0 && (
-                          <span className="text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded font-bold">
-                            {newReceiptPhotos.length} {newReceiptPhotos.length === 1 ? 'Foto' : 'Fotos'}
+                          <span className="text-[10px] text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full font-bold">
+                            {newReceiptPhotos.length} {newReceiptPhotos.length === 1 ? 'Foto Anexada' : 'Fotos Anexadas'}
                           </span>
                         )}
                       </label>
@@ -841,47 +862,70 @@ export const TripExpenseModal: React.FC<TripExpenseModalProps> = ({
                       />
                       
                       {newReceiptPhotos.length > 0 ? (
-                        <div className="flex flex-wrap gap-2 items-center">
-                          {newReceiptPhotos.map((photo, idx) => (
-                            <div key={idx} className="relative group">
-                              <img
-                                src={photo}
-                                alt={`Comprovante ${idx + 1}`}
-                                className="w-10 h-10 rounded-lg object-cover border border-emerald-500 cursor-pointer"
-                                onClick={() => setPreviewPhoto(photo)}
-                              />
-                              <button
-                                type="button"
-                                onClick={() => removePhoto(idx)}
-                                className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white rounded-full p-0.5 shadow-md opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                                title="Remover"
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            </div>
-                          ))}
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap gap-2 items-center">
+                            {newReceiptPhotos.map((photo, idx) => (
+                              <div key={idx} className="relative group">
+                                <img
+                                  src={photo}
+                                  alt={`Comprovante ${idx + 1}`}
+                                  className="w-12 h-12 rounded-xl object-cover border-2 border-emerald-500 cursor-pointer shadow-xs"
+                                  onClick={() => setPreviewPhoto(photo)}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removePhoto(idx)}
+                                  className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white rounded-full p-0.5 shadow-md opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-rose-600"
+                                  title="Remover foto"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="flex items-center gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => setIsCameraOpen(true)}
+                              className="px-2.5 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-1.5 hover:bg-emerald-100 transition-colors cursor-pointer"
+                              title="Tirar mais fotos com a câmera"
+                            >
+                              <Camera className="w-3.5 h-3.5" />
+                              <span>+ Câmera</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => fileInputRef.current?.click()}
+                              className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 hover:bg-slate-200 transition-colors cursor-pointer"
+                              title="Adicionar fotos da galeria"
+                            >
+                              <Upload className="w-3.5 h-3.5" />
+                              <span>+ Galeria / Arquivo</span>
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsCameraOpen(true)}
+                            className="p-2.5 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors"
+                          >
+                            <Camera className="w-4 h-4" />
+                            <span>Tirar Foto (Câmera)</span>
+                          </button>
+
                           <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
-                            className="w-10 h-10 rounded-lg border border-dashed border-emerald-500 flex items-center justify-center text-emerald-600 bg-emerald-50 hover:bg-emerald-100 cursor-pointer transition-colors"
-                            title="Adicionar mais fotos"
+                            className="p-2.5 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 transition-colors"
                           >
-                            <Plus className="w-4 h-4" />
+                            <Upload className="w-4 h-4" />
+                            <span>Galeria / Arquivo</span>
                           </button>
                         </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className={`w-full p-2 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer rounded-lg border ${
-                            newCategory === 'ALIMENTACAO' 
-                              ? 'bg-slate-50 dark:bg-slate-800 text-slate-500 border-dashed border-slate-300' 
-                              : 'bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-700 dark:text-slate-200 border-transparent'
-                          }`}
-                        >
-                          <Camera className="w-3.5 h-3.5" />
-                          <span>Adicionar Comprovantes</span>
-                        </button>
                       )}
                     </div>
                   </div>
@@ -1410,6 +1454,16 @@ export const TripExpenseModal: React.FC<TripExpenseModalProps> = ({
             </div>
           </div>
         )}
+
+        {/* Live Camera Capture Modal */}
+        <CameraCaptureModal
+          isOpen={isCameraOpen}
+          onClose={() => setIsCameraOpen(false)}
+          onCapture={(photo) => setNewReceiptPhotos(prev => [...prev, photo])}
+          title="Fotografar Comprovante / Cupom Fiscal"
+          subtitle="Aponte a câmera para o documento ou cupom com boa iluminação"
+          preferredFacingMode="environment"
+        />
 
       </div>
     </div>

@@ -13,7 +13,9 @@ import {
   WhatsAppConfig,
   SaaSGlobalConfig,
   PlanConfig,
-  TripExpenseReport
+  TripExpenseReport,
+  WebPage,
+  BlogPost
 } from '../src/types';
 
 // In-Memory Multi-Tenant Store with realistic seed data
@@ -29,6 +31,8 @@ class DatabaseStore {
   forms: FormDefinition[] = [];
   formResponses: FormResponse[] = [];
   auditLogs: AuditLog[] = [];
+  pages: WebPage[] = [];
+  posts: BlogPost[] = [];
   whatsappConfigs: Map<string, WhatsAppConfig> = new Map();
   globalWhatsAppConfig: WhatsAppConfig = {
     baseUrl: process.env.WHATSAPP_API_URL || '',
@@ -113,6 +117,27 @@ class DatabaseStore {
         { id: 'advanceAmount', originalLabel: 'Adiantamento Pago pela Empresa (R$)', label: 'Adiantamento Pago pela Empresa (R$)', placeholder: '0.00', enabled: true, required: true },
         { id: 'driverLaborAmount', originalLabel: 'Mão de Obra Motorista (R$)', label: 'Mão de Obra Motorista (R$)', placeholder: '0.00', enabled: true, required: true }
       ]
+    },
+    databaseConfig: {
+      enabled: true,
+      dbType: 'postgres',
+      host: process.env.DB_HOST || 'postgres',
+      port: parseInt(process.env.DB_PORT || '5432', 10),
+      database: process.env.DB_NAME || 'elolog',
+      username: process.env.DB_USER || 'elolog_user',
+      password: process.env.DB_PASSWORD || 'elolog_secret_password_2026',
+      ssl: process.env.DB_SSL === 'true',
+      autoMigrate: true,
+      connectionStatus: 'UNCONFIGURED'
+    },
+    imageCompression: {
+      enabled: true,
+      maxWidth: 1600,
+      maxHeight: 1600,
+      quality: 0.8,
+      format: 'image/jpeg',
+      autoCompressDocuments: true,
+      maxFileSizeKB: 400
     }
   };
 

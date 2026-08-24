@@ -1,3 +1,28 @@
+export interface WebPage {
+  id: string;
+  tenantId: string | null; // null for global/superadmin
+  slug: string;
+  title: string;
+  content: string; // HTML or Markdown
+  isPublished: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BlogPost {
+  id: string;
+  tenantId: string | null; // null for global/superadmin
+  slug: string;
+  title: string;
+  excerpt?: string;
+  content: string;
+  author: string;
+  isPublished: boolean;
+  publishedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type UserRole = 
   | 'SUPER_ADMIN' 
   | 'EMPRESA_SUPER_ADMIN' 
@@ -102,6 +127,8 @@ export interface User {
   driverId?: string; // If role is MOTORISTA
   password?: string; // For company logins
   lastLoginAt?: string;
+  termsAcceptedAt?: string;
+  privacyAcceptedAt?: string;
   createdAt: string;
   updatedAt?: string;
 }
@@ -422,6 +449,41 @@ export interface SaaSFormFieldsConfig {
   expenseForm: FormFieldSetting[];
 }
 
+export interface EmailConfig {
+  host: string;
+  port: number;
+  user: string;
+  password?: string; // Should be handled carefully, maybe just for display
+  senderEmail: string;
+  testEmail?: string;
+  isActive: boolean;
+}
+
+export interface SqlDatabaseConfig {
+  enabled: boolean;
+  dbType: 'postgres' | 'mysql' | 'sqlite';
+  host: string;
+  port: number;
+  database: string;
+  username: string;
+  password?: string;
+  ssl: boolean;
+  poolMax?: number;
+  autoMigrate: boolean;
+  connectionStatus?: 'CONNECTED' | 'DISCONNECTED' | 'ERROR' | 'UNCONFIGURED';
+  lastTestedAt?: string;
+}
+
+export interface ImageCompressionConfig {
+  enabled: boolean;
+  maxWidth: number;
+  maxHeight: number;
+  quality: number; // 0.1 to 1.0
+  format: 'image/jpeg' | 'image/webp' | 'image/png';
+  autoCompressDocuments: boolean;
+  maxFileSizeKB: number;
+}
+
 export interface SaaSGlobalConfig {
   systemName: string;
   supportPhone: string;
@@ -434,6 +496,9 @@ export interface SaaSGlobalConfig {
   plans: PlanConfig[];
   layout?: SaaSLayoutConfig;
   formFields?: SaaSFormFieldsConfig;
+  emailConfig?: EmailConfig;
+  databaseConfig?: SqlDatabaseConfig;
+  imageCompression?: ImageCompressionConfig;
 }
 
 export type ExpenseCategory = 

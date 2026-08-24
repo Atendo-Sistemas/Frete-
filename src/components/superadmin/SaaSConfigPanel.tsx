@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
-import { SaaSGlobalConfig, WhatsAppConfig } from '../../types';
+import { SaaSGlobalConfig, WhatsAppConfig, EmailConfig } from '../../types';
 import { 
   Settings, 
   Globe, 
@@ -18,14 +18,16 @@ import {
   Eye,
   EyeOff,
   Palette,
-  FileText
+  FileText,
+  Database
 } from 'lucide-react';
+import { SqlAndInstallationConfig } from './SqlAndInstallationConfig';
 
 export const SaaSConfigPanel: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [activeSubTab, setActiveSubTab] = useState<'branding' | 'plans' | 'rules' | 'gateway' | 'layout' | 'fields'>('layout');
+  const [activeSubTab, setActiveSubTab] = useState<'branding' | 'plans' | 'rules' | 'gateway' | 'layout' | 'fields' | 'email' | 'sql-installation'>('sql-installation');
   const [selectedForm, setSelectedForm] = useState<'userForm' | 'freightForm' | 'driverForm' | 'expenseForm'>('freightForm');
   const [showToken, setShowToken] = useState(false);
 
@@ -340,6 +342,28 @@ export const SaaSConfigPanel: React.FC = () => {
           >
             <FileText className="w-4 h-4 shrink-0" /> Campos dos Formulários
           </button>
+          
+          <button
+            onClick={() => setActiveSubTab('email')}
+            className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2.5 cursor-pointer ${
+              activeSubTab === 'email'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+            }`}
+          >
+            <Send className="w-4 h-4 shrink-0" /> Configurações de E-mail
+          </button>
+
+          <button
+            onClick={() => setActiveSubTab('sql-installation')}
+            className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2.5 cursor-pointer ${
+              activeSubTab === 'sql-installation'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+            }`}
+          >
+            <Database className="w-4 h-4 shrink-0" /> SQL & Instalação VPS
+          </button>
         </div>
 
         {/* Content Container */}
@@ -598,6 +622,155 @@ export const SaaSConfigPanel: React.FC = () => {
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer disabled:opacity-50"
                 >
                   {saving ? 'Gravando...' : 'Salvar Regras Operacionais'}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* TAB 7: EMAIL CONFIG */}
+          {activeSubTab === 'email' && config && (
+            <form onSubmit={handleSaveSaaSConfig} className="space-y-6">
+              <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
+                <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-wider">Configurações de Servidor SMTP (E-mail)</h3>
+                <p className="text-[11px] text-slate-400 mt-1">Configure os dados do servidor SMTP para envio de notificações e alertas do sistema.</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="col-span-2 sm:col-span-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">Host SMTP</label>
+                  <input
+                    type="text"
+                    required
+                    value={config.emailConfig?.host || ''}
+                    onChange={e => setConfig({ ...config, emailConfig: { ...config.emailConfig, host: e.target.value, port: config.emailConfig?.port || 587, user: config.emailConfig?.user || '', senderEmail: config.emailConfig?.senderEmail || '', isActive: config.emailConfig?.isActive || false } })}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium focus:outline-emerald-500"
+                    placeholder="smtp.exemplo.com"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">Porta</label>
+                  <input
+                    type="number"
+                    value={config.emailConfig?.port ?? ''}
+                    onChange={e => {
+                        const val = e.target.value === '' ? undefined : parseInt(e.target.value);
+                        setConfig({
+                            ...config,
+                            emailConfig: {
+                                ...(config.emailConfig || {} as EmailConfig),
+                                port: val
+                            }
+                        });
+                    }}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium focus:outline-emerald-500"
+                    placeholder="587"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">Usuário</label>
+                  <input
+                    type="text"
+                    required
+                    value={config.emailConfig?.user || ''}
+                    onChange={e => setConfig({ ...config, emailConfig: { ...config.emailConfig, host: config.emailConfig?.host || '', port: config.emailConfig?.port || 587, user: e.target.value, senderEmail: config.emailConfig?.senderEmail || '', isActive: config.emailConfig?.isActive || false } })}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium focus:outline-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">Senha</label>
+                  <input
+                    type="password"
+                    value={config.emailConfig?.password || ''}
+                    onChange={e => setConfig({ ...config, emailConfig: { ...config.emailConfig, host: config.emailConfig?.host || '', port: config.emailConfig?.port || 587, user: config.emailConfig?.user || '', password: e.target.value, senderEmail: config.emailConfig?.senderEmail || '', isActive: config.emailConfig?.isActive || false } })}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium focus:outline-emerald-500"
+                  />
+                </div>
+                <div className="col-span-2 sm:col-span-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">E-mail Remetente</label>
+                  <input
+                    type="email"
+                    required
+                    value={config.emailConfig?.senderEmail || ''}
+                    onChange={e => setConfig({ ...config, emailConfig: { ...config.emailConfig, host: config.emailConfig?.host || '', port: config.emailConfig?.port || 587, user: config.emailConfig?.user || '', senderEmail: e.target.value, testEmail: config.emailConfig?.testEmail, isActive: config.emailConfig?.isActive || false } })}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium focus:outline-emerald-500"
+                  />
+                </div>
+                <div className="col-span-2 sm:col-span-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">E-mail para Teste</label>
+                  <input
+                    type="email"
+                    value={config.emailConfig?.testEmail || ''}
+                    onChange={e => setConfig({ ...config, emailConfig: { ...config.emailConfig, host: config.emailConfig?.host || '', port: config.emailConfig?.port || 587, user: config.emailConfig?.user || '', senderEmail: config.emailConfig?.senderEmail || '', testEmail: e.target.value, isActive: config.emailConfig?.isActive || false } })}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium focus:outline-emerald-500"
+                    placeholder="teste@dominio.com"
+                  />
+                </div>
+                <div className="flex items-center pt-5 gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={config.emailConfig?.isActive || false}
+                        onChange={e => setConfig({ ...config, emailConfig: { ...config.emailConfig, host: config.emailConfig?.host || '', port: config.emailConfig?.port || 587, user: config.emailConfig?.user || '', senderEmail: config.emailConfig?.senderEmail || '', isActive: e.target.checked } })}
+                        className="rounded text-emerald-600 focus:ring-emerald-500"
+                      />
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Ativar</span>
+                    </label>
+                    <button
+                        type="button"
+                        onClick={async () => {
+                            if (!config.emailConfig?.host || !config.emailConfig?.port || !config.emailConfig?.user || !config.emailConfig?.senderEmail) {
+                                setMessage({ text: 'Preencha Host, Porta, Usuário e E-mail Remetente para testar.', type: 'error' });
+                                return;
+                            }
+                            if (!config.emailConfig?.testEmail) {
+                                setMessage({ text: 'Informe um e-mail para teste.', type: 'error' });
+                                return;
+                            }
+                            setTesting(true);
+                            try {
+                                // Simulate API call to check SMTP
+                                const res = await api.testEmailConnection(config.emailConfig);
+                                if (res.success) {
+                                    setMessage({ text: `E-mail de teste enviado para ${config.emailConfig.testEmail} com sucesso!`, type: 'success' });
+                                } else {
+                                    throw new Error(res.message || 'Erro desconhecido ao enviar e-mail.');
+                                }
+                            } catch (e: any) {
+                                setMessage({ text: e.message || 'Erro ao conectar ao servidor SMTP ou enviar e-mail.', type: 'error' });
+                            } finally {
+                                setTesting(false);
+                                setTimeout(() => setMessage(null), 10000); // Increased duration for readability
+                            }
+                        }}
+                        disabled={testing}
+                        className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold cursor-pointer disabled:opacity-50"
+                    >
+                        {testing ? 'Testando...' : 'Testar Conexão'}
+                    </button>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4 border-t border-slate-100 dark:border-slate-800">
+                {message && message.type === 'success' && (
+                  <div className="flex-1 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg p-2 mr-3 flex items-center">
+                    <CheckCircle className="w-4 h-4 mr-2" /> {message.text}
+                  </div>
+                )}
+                {message && message.type === 'error' && (
+                  <div className="flex-1 text-xs font-semibold text-rose-800 bg-rose-50 border border-rose-200 rounded-lg p-2 mr-3 flex items-center">
+                    <AlertTriangle className="w-4 h-4 mr-2" /> {message.text}
+                  </div>
+                )}
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer disabled:opacity-50"
+                  onClick={() => {
+                      // Triggering form submission manually if needed, or relying on onSubmit
+                      // The current form onSubmit is already handling it
+                  }}
+                >
+                  {saving ? 'Gravando...' : 'Salvar Configurações de E-mail'}
                 </button>
               </div>
             </form>
@@ -1189,6 +1362,21 @@ export const SaaSConfigPanel: React.FC = () => {
                 </button>
               </div>
             </div>
+          )}
+
+          {/* TAB 8: SQL & INSTALAÇÃO VPS */}
+          {activeSubTab === 'sql-installation' && config && (
+            <SqlAndInstallationConfig
+              config={config}
+              onUpdateConfig={async (updated) => {
+                const newConfig = { ...config, ...updated };
+                setConfig(newConfig);
+                await api.updateSaaSGlobalConfig(newConfig);
+                setMessage({ text: 'Configurações de SQL e Instalação salvas com sucesso!', type: 'success' });
+                setTimeout(() => setMessage(null), 4000);
+              }}
+              saving={saving}
+            />
           )}
 
         </div>
