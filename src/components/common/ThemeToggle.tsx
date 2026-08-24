@@ -16,7 +16,6 @@ export const ThemeToggle: React.FC = () => {
     };
 
     window.addEventListener('storage', checkDark);
-    // Also observe class attribute changes on html element
     const observer = new MutationObserver(checkDark);
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
@@ -50,9 +49,9 @@ export const ThemeToggle: React.FC = () => {
       aria-label="Alternar Tema"
     >
       {isDark ? (
-        <Sun className="w-5 h-5 text-amber-400 hover:rotate-45 transition-transform" />
+        <Moon className="w-5 h-5 text-indigo-400 hover:-rotate-12 transition-transform" />
       ) : (
-        <Moon className="w-5 h-5 text-indigo-600 dark:text-indigo-400 hover:-rotate-12 transition-transform" />
+        <Sun className="w-5 h-5 text-amber-500 hover:rotate-45 transition-transform" />
       )}
     </button>
   );

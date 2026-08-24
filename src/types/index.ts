@@ -166,12 +166,20 @@ export interface FreightLocation {
 
 export interface FreightCargo {
   description: string;
-  type: CargoType;
+  type: CargoType | 'VEICULO';
   weightKg: number;
   volumeCount: number;
   dimensions?: string;
   requiresInsurance?: boolean;
   notes?: string;
+  
+  // Detalhes da Carga / Veículo Transportado (Liberado após aceite)
+  vehicleProduct?: string;
+  chassis?: string;
+  nfVehicleSale?: string;
+  nfFacchini?: string;
+  trackerStatus?: string;
+  platesStatus?: string;
 }
 
 export interface FreightRequirements {
@@ -232,6 +240,7 @@ export interface Freight {
   formResponsesCount?: number;
   createdAt: string;
   updatedAt: string;
+  customData?: Record<string, any>;
 }
 
 export type NotificationType = 
@@ -410,6 +419,7 @@ export interface SaaSFormFieldsConfig {
   userForm: FormFieldSetting[];
   freightForm: FormFieldSetting[];
   driverForm: FormFieldSetting[];
+  expenseForm: FormFieldSetting[];
 }
 
 export interface SaaSGlobalConfig {
@@ -424,5 +434,98 @@ export interface SaaSGlobalConfig {
   plans: PlanConfig[];
   layout?: SaaSLayoutConfig;
   formFields?: SaaSFormFieldsConfig;
+}
+
+export type ExpenseCategory = 
+  | 'ABASTECIMENTO'
+  | 'HOSPEDAGEM'
+  | 'PEDAGIO'
+  | 'LOCOMOCAO_URBANA' // Uber, Táxi, Ônibus, Metrô
+  | 'PASSAGEM_AEREA'
+  | 'PASSAGEM_RODOVIARIA'
+  | 'ALIMENTACAO'
+  | 'MANUTENCAO_BORRACHARIA'
+  | 'ESTACIONAMENTO'
+  | 'BALSA'
+  | 'OUTROS';
+
+export interface TripExpenseItem {
+  id: string;
+  category: ExpenseCategory;
+  date: string; // YYYY-MM-DD
+  description: string;
+  establishmentName?: string; // Nome do Posto / Hotel / Cia / Estabelecimento
+  documentNumber?: string; // Nº Cupom Fiscal / NF / Bilhete
+  amount: number;
+  paymentMethod: 'ADIANTAMENTO_EMPRESA' | 'CARTAO_CORPORATIVO' | 'DINHEIRO_PROPRIO' | 'PIX_PROPRIO' | 'TAG_AUTOMATICA';
+  
+  // Specific category fields
+  liters?: number; // For Abastecimento
+  pricePerLiter?: number; // For Abastecimento
+  odometerKm?: number; // Km no momento do abastecimento
+  fuelType?: 'DIESEL_S10' | 'DIESEL_S500' | 'GASOLINA' | 'ETANOL' | 'ARLA_32';
+  arlaLiters?: number; // Quantidade de Arla
+  arlaAmount?: number; // Valor gasto com Arla
+  
+  nightsCount?: number; // For Hospedagem
+  transportOrigin?: string; // For Passagens / Locomoção
+  transportDestination?: string; // For Passagens / Locomoção
+  
+  receiptPhotoUrl?: string; // Deprecated: keep for backwards compatibility
+  receiptPhotoUrls?: string[]; // Multiple photos support
+  notes?: string;
+  createdAt: string;
+}
+
+export type TripExpenseStatus = 
+  | 'RASCUNHO'
+  | 'ENVIADO'
+  | 'EM_ANALISE'
+  | 'APROVADO'
+  | 'REJEITADO'
+  | 'QUITADO';
+
+export interface TripExpenseReport {
+  id: string;
+  tenantId?: string;
+  freightId?: string;
+  freightCode?: string;
+  driverId: string;
+  driverName: string;
+  driverPhone?: string;
+  vehiclePlate?: string;
+  chassis?: string;
+  vehicleModel?: string;
+  clientName?: string;
+  
+  // Trip general info
+  startDate: string; // YYYY-MM-DD or ISO
+  endDate: string; // YYYY-MM-DD or ISO
+  tripDays: number;
+  initialKm: number;
+  finalKm: number;
+  totalKm: number;
+  totalLiters: number;
+  averageKmPerLiter: number;
+  costPerKm: number;
+  
+  // Financial Summary
+  advanceAmount: number; // Adiantamento recebido da empresa
+  driverLaborAmount?: number; // Mão de obra do motorista
+  totalExpenses: number; // Total de despesas comprovadas
+  balanceAmount: number; // advanceAmount - totalExpenses (Positivo = A Devolver / Negativo = A Reembolsar)
+  balanceStatus: 'A_DEVOLVER' | 'REEMBOLSO_A_RECEBER' | 'QUITADO';
+  
+  status: TripExpenseStatus;
+  items: TripExpenseItem[];
+  
+  generalNotes?: string;
+  reviewerNotes?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  approvedAt?: string;
+  
+  createdAt: string;
+  updatedAt: string;
 }
 

@@ -48,13 +48,13 @@ export const DemoSwitcher: React.FC<DemoSwitcherProps> = ({ onOpenRegisterDriver
   ];
 
   return (
-    <div id="demo-account-switcher" className="bg-slate-900 text-slate-200 px-3 py-2 text-xs border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 shadow-sm">
-      <div className="flex items-center gap-2 font-medium">
+    <div id="demo-account-switcher" className="w-full max-w-full bg-slate-900 text-slate-200 px-3 py-2 text-xs border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-sm">
+      <div className="flex items-center gap-2 font-medium shrink-0">
         <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
         <span className="text-slate-400 font-semibold tracking-wider uppercase text-[10px]">Alternar Perfil para Teste:</span>
       </div>
 
-      <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 max-w-full">
         {presets.map(p => {
           const isActive = user?.id === p.id;
           const Icon = p.icon;
@@ -64,14 +64,14 @@ export const DemoSwitcher: React.FC<DemoSwitcherProps> = ({ onOpenRegisterDriver
               key={p.id}
               disabled={loading}
               onClick={() => switchUser(p.id)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md font-medium transition-all text-xs cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md font-medium transition-all text-xs cursor-pointer shrink-0 ${
                 isActive 
                   ? 'ring-2 ring-white/80 font-bold shadow-md ' + p.color
                   : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-700'
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
-              <span>{p.label}</span>
+              <span className="whitespace-nowrap">{p.label}</span>
               {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white ml-0.5 animate-ping"></span>}
             </button>
           );
@@ -81,10 +81,10 @@ export const DemoSwitcher: React.FC<DemoSwitcherProps> = ({ onOpenRegisterDriver
           <button
             id="btn-open-register-driver"
             onClick={onOpenRegisterDriver}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-md font-medium bg-emerald-700/80 hover:bg-emerald-600 text-emerald-100 border border-emerald-500/40 transition-colors cursor-pointer ml-1"
+            className="flex items-center gap-1 px-2.5 py-1 rounded-md font-medium bg-emerald-700/80 hover:bg-emerald-600 text-emerald-100 border border-emerald-500/40 transition-colors cursor-pointer shrink-0 ml-1"
           >
             <UserPlus className="w-3.5 h-3.5 text-emerald-300" />
-            <span>+ Cadastrar Novo Motorista</span>
+            <span className="whitespace-nowrap">+ Novo Motorista</span>
           </button>
         )}
       </div>

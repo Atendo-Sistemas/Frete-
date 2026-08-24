@@ -12,7 +12,8 @@ import {
   UserRole,
   WhatsAppConfig,
   SaaSGlobalConfig,
-  PlanConfig
+  PlanConfig,
+  TripExpenseReport
 } from '../src/types';
 
 // In-Memory Multi-Tenant Store with realistic seed data
@@ -22,6 +23,7 @@ class DatabaseStore {
   drivers: Driver[] = [];
   vehicles: Vehicle[] = [];
   freights: Freight[] = [];
+  tripExpenses: TripExpenseReport[] = [];
   notifications: AppNotification[] = [];
   pushSubscriptions: any[] = [];
   forms: FormDefinition[] = [];
@@ -56,7 +58,7 @@ class DatabaseStore {
       fontFamily: 'sans',
       navbarStyle: 'dark',
       logoText: 'ELO LOG',
-      systemBackground: 'minimal'
+      systemBackground: 'slate'
     },
     formFields: {
       userForm: [
@@ -97,6 +99,19 @@ class DatabaseStore {
         { id: 'vehicleType', originalLabel: 'Tipo de Veículo', label: 'Tipo de Veículo', placeholder: 'Tipo do caminhão', enabled: true, required: true },
         { id: 'vehicleModel', originalLabel: 'Marca / Modelo', label: 'Marca / Modelo', placeholder: 'Ex: Volvo FH 540', enabled: true, required: true },
         { id: 'vehiclePlate', originalLabel: 'Placa', label: 'Placa', placeholder: 'Placa do veículo', enabled: true, required: true }
+      ],
+      expenseForm: [
+        { id: 'driverName', originalLabel: 'Nome do Motorista', label: 'Nome do Motorista', placeholder: 'Nome...', enabled: true, required: true },
+        { id: 'clientName', originalLabel: 'Cliente', label: 'Cliente', placeholder: 'Nome do Cliente...', enabled: true, required: true },
+        { id: 'vehicleModel', originalLabel: 'Modelo do Veículo', label: 'Modelo do Veículo', placeholder: 'Ex: FH 540', enabled: true, required: true },
+        { id: 'vehiclePlate', originalLabel: 'Placa do Caminhão / Veículo', label: 'Placa do Caminhão / Veículo', placeholder: 'ABC-1234', enabled: true, required: true },
+        { id: 'chassis', originalLabel: 'Placa / Chassis', label: 'Placa / Chassis', placeholder: 'Nº Chassis', enabled: true, required: true },
+        { id: 'startDate', originalLabel: 'Data de Início da Viagem', label: 'Data de Início da Viagem', placeholder: '', enabled: true, required: true },
+        { id: 'endDate', originalLabel: 'Data de Término da Viagem', label: 'Data de Término da Viagem', placeholder: '', enabled: true, required: true },
+        { id: 'initialKm', originalLabel: 'Km Inicial', label: 'Km Inicial', placeholder: '0', enabled: true, required: true },
+        { id: 'finalKm', originalLabel: 'Km Final', label: 'Km Final', placeholder: '0', enabled: true, required: true },
+        { id: 'advanceAmount', originalLabel: 'Adiantamento Pago pela Empresa (R$)', label: 'Adiantamento Pago pela Empresa (R$)', placeholder: '0.00', enabled: true, required: true },
+        { id: 'driverLaborAmount', originalLabel: 'Mão de Obra Motorista (R$)', label: 'Mão de Obra Motorista (R$)', placeholder: '0.00', enabled: true, required: true }
       ]
     }
   };
@@ -1016,6 +1031,131 @@ class DatabaseStore {
         createdAt: '2026-01-22T14:00:00.000Z'
       }
     ];
+
+    // Seed Trip Expenses & Accountability Reports
+    this.tripExpenses = [
+      {
+        id: 'exp-rep-001',
+        tenantId: 'tenant-translog-01',
+        freightId: 'freight-001',
+        freightCode: 'FRT-2026-0001',
+        driverId: 'driver-001',
+        driverName: 'Marcos Vinicius da Silva',
+        driverPhone: '(11) 98765-4321',
+        vehiclePlate: 'BRA2E19',
+        startDate: '2026-08-20',
+        endDate: '2026-08-23',
+        tripDays: 4,
+        initialKm: 142300,
+        finalKm: 144180,
+        totalKm: 1880,
+        totalLiters: 650,
+        averageKmPerLiter: 2.89,
+        costPerKm: 2.38,
+        advanceAmount: 5000.00,
+        totalExpenses: 4478.50,
+        balanceAmount: 521.50,
+        balanceStatus: 'A_DEVOLVER',
+        status: 'ENVIADO',
+        generalNotes: 'Viagem tranquila entre Santos/SP e Cuiabá/MT. Abastecimentos realizados nos postos conveniados.',
+        items: [
+          {
+            id: 'item-exp-1',
+            category: 'ABASTECIMENTO',
+            date: '2026-08-20',
+            description: 'Abastecimento Diesel S10 320L',
+            establishmentName: 'Posto Graal Rodovia dos Bandeirantes',
+            documentNumber: 'NF-e 883921',
+            amount: 1984.00,
+            paymentMethod: 'ADIANTAMENTO_EMPRESA',
+            liters: 320,
+            pricePerLiter: 6.20,
+            odometerKm: 142450,
+            fuelType: 'DIESEL_S10',
+            createdAt: '2026-08-20T11:30:00Z'
+          },
+          {
+            id: 'item-exp-2',
+            category: 'PEDAGIO',
+            date: '2026-08-20',
+            description: 'Recarga de Tag Sem Parar',
+            establishmentName: 'AutoBAn Concessionária',
+            documentNumber: 'REC-3901',
+            amount: 420.00,
+            paymentMethod: 'ADIANTAMENTO_EMPRESA',
+            createdAt: '2026-08-20T08:00:00Z'
+          },
+          {
+            id: 'item-exp-3',
+            category: 'HOSPEDAGEM',
+            date: '2026-08-21',
+            description: 'Pernoite e Estacionamento Seguro',
+            establishmentName: 'Hotel Trevo Rondonópolis',
+            documentNumber: 'NFS-e 4492',
+            amount: 180.00,
+            paymentMethod: 'ADIANTAMENTO_EMPRESA',
+            nightsCount: 1,
+            createdAt: '2026-08-21T21:00:00Z'
+          },
+          {
+            id: 'item-exp-4',
+            category: 'ABASTECIMENTO',
+            date: '2026-08-22',
+            description: 'Abastecimento Diesel S10 330L',
+            establishmentName: 'Posto Ipiranga Rondonópolis MT',
+            documentNumber: 'NF-e 992014',
+            amount: 2079.00,
+            paymentMethod: 'ADIANTAMENTO_EMPRESA',
+            liters: 330,
+            pricePerLiter: 6.30,
+            odometerKm: 143600,
+            fuelType: 'DIESEL_S10',
+            createdAt: '2026-08-22T14:45:00Z'
+          },
+          {
+            id: 'item-exp-5',
+            category: 'ALIMENTACAO',
+            date: '2026-08-22',
+            description: 'Almoço e janta no trajeto',
+            establishmentName: 'Restaurante Estrada Real',
+            documentNumber: 'CF 5591',
+            amount: 85.50,
+            paymentMethod: 'DINHEIRO_PROPRIO',
+            createdAt: '2026-08-22T19:30:00Z'
+          },
+          {
+            id: 'item-exp-6',
+            category: 'LOCOMOCAO_URBANA',
+            date: '2026-08-23',
+            description: 'Deslocamento Uber do pátio ao hotel',
+            establishmentName: 'Uber Brasil',
+            documentNumber: 'UBR-99201',
+            amount: 40.00,
+            paymentMethod: 'PIX_PROPRIO',
+            transportOrigin: 'Pátio Logístico Cuiabá',
+            transportDestination: 'Hotel Central',
+            createdAt: '2026-08-23T18:00:00Z'
+          }
+        ],
+        createdAt: '2026-08-23T14:00:00.000Z',
+        updatedAt: '2026-08-23T14:00:00.000Z'
+      }
+    ];
+  }
+
+  getNextTalaoNumber(): string {
+    let highest = 0;
+    for (const resp of this.formResponses) {
+      if (resp.answers && resp.answers.talaoNumber) {
+        const raw = String(resp.answers.talaoNumber).replace(/\D/g, '');
+        const n = parseInt(raw, 10);
+        if (!isNaN(n) && n > highest && n < 100000) {
+          highest = n;
+        }
+      }
+    }
+    const nextVal = highest + 1;
+    return String(nextVal).padStart(3, '0');
   }
 }
 

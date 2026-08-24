@@ -26,7 +26,7 @@ export const SaaSConfigPanel: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState<'branding' | 'plans' | 'rules' | 'gateway' | 'layout' | 'fields'>('layout');
-  const [selectedForm, setSelectedForm] = useState<'userForm' | 'freightForm' | 'driverForm'>('freightForm');
+  const [selectedForm, setSelectedForm] = useState<'userForm' | 'freightForm' | 'driverForm' | 'expenseForm'>('freightForm');
   const [showToken, setShowToken] = useState(false);
 
   // SaaS configuration state
@@ -113,6 +113,17 @@ export const SaaSConfigPanel: React.FC = () => {
             { id: 'state', originalLabel: 'Estado (UF)', label: 'Estado (UF)', placeholder: 'SP', enabled: true, required: true },
             { id: 'cnh', originalLabel: 'CNH', label: 'CNH', placeholder: 'Nº CNH', enabled: true, required: true },
             { id: 'cnhCategory', originalLabel: 'Categoria', label: 'Categoria', placeholder: '', enabled: true, required: true }
+          ],
+          expenseForm: [
+            { id: 'driverName', originalLabel: 'Nome do Motorista', label: 'Nome do Motorista', placeholder: 'Nome...', enabled: true, required: true },
+            { id: 'clientName', originalLabel: 'Cliente', label: 'Cliente', placeholder: 'Nome do Cliente...', enabled: true, required: true },
+            { id: 'vehicleModel', originalLabel: 'Modelo do Veículo', label: 'Modelo do Veículo', placeholder: 'Ex: FH 540', enabled: true, required: true },
+            { id: 'vehiclePlate', originalLabel: 'Placa do Caminhão / Veículo', label: 'Placa do Caminhão / Veículo', placeholder: 'ABC-1234', enabled: true, required: true },
+            { id: 'chassis', originalLabel: 'Placa / Chassis', label: 'Placa / Chassis', placeholder: 'Nº Chassis', enabled: true, required: true },
+            { id: 'startDate', originalLabel: 'Data de Início da Viagem', label: 'Data de Início da Viagem', placeholder: '', enabled: true, required: true },
+            { id: 'endDate', originalLabel: 'Data de Término da Viagem', label: 'Data de Término da Viagem', placeholder: '', enabled: true, required: true },
+            { id: 'initialKm', originalLabel: 'Km Inicial', label: 'Km Inicial', placeholder: '0', enabled: true, required: true },
+            { id: 'finalKm', originalLabel: 'Km Final', label: 'Km Final', placeholder: '0', enabled: true, required: true }
           ]
         };
       }
@@ -1022,7 +1033,8 @@ export const SaaSConfigPanel: React.FC = () => {
                 {[
                   { id: 'freightForm', name: 'Cadastro de Frete' },
                   { id: 'driverForm', name: 'Cadastro de Motorista' },
-                  { id: 'userForm', name: 'Cadastro de Usuário' }
+                  { id: 'userForm', name: 'Cadastro de Usuário' },
+                  { id: 'expenseForm', name: 'Prestação de Contas (Despesas)' }
                 ].map(formOpt => (
                   <button
                     key={formOpt.id}
@@ -1039,9 +1051,33 @@ export const SaaSConfigPanel: React.FC = () => {
                 ))}
               </div>
 
+              {/* Add New Field */}
+              <button
+                type="button"
+                onClick={() => {
+                  const id = prompt('Digite o ID interno do novo campo (ex: obs1):');
+                  const label = prompt('Digite o nome exibido do campo:');
+                  if (id && label) {
+                    const updated = { ...config };
+                    updated.formFields![selectedForm].push({
+                      id,
+                      originalLabel: label,
+                      label,
+                      placeholder: '',
+                      enabled: true,
+                      required: false
+                    });
+                    setConfig(updated);
+                  }
+                }}
+                className="mb-4 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold flex items-center gap-2 cursor-pointer"
+              >
+                + Adicionar Novo Campo
+              </button>
+
               {/* Fields List */}
-              <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-xs">
-                <table className="w-full text-left text-xs">
+              <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto shadow-xs">
+                <table className="w-full text-left text-xs min-w-[600px]">
                   <thead className="bg-slate-50 dark:bg-slate-800/40 border-b border-slate-200 dark:border-slate-800 text-[10px] uppercase font-black tracking-wider text-slate-500">
                     <tr>
                       <th className="py-3 px-4">Campo Original (Interno)</th>
@@ -1049,6 +1085,7 @@ export const SaaSConfigPanel: React.FC = () => {
                       <th className="py-3 px-4">Placeholder (Texto de Ajuda)</th>
                       <th className="py-3 px-4 text-center">Ativo</th>
                       <th className="py-3 px-4 text-center">Obrigatório</th>
+                      <th className="py-3 px-4 text-center">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -1116,6 +1153,23 @@ export const SaaSConfigPanel: React.FC = () => {
                             }}
                             className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                           />
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-2 px-4 text-center">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm('Deseja realmente excluir este campo?')) {
+                                const updated = { ...config };
+                                updated.formFields![selectedForm].splice(idx, 1);
+                                setConfig(updated);
+                              }
+                            }}
+                            className="text-rose-600 hover:text-rose-800 font-bold"
+                          >
+                            Excluir
+                          </button>
                         </td>
                       </tr>
                     ))}

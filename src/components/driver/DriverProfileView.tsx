@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { VehicleBadge } from '../common/Badge';
-import { Truck, User, FileText, Phone, MapPin, Award, Shield, CheckCircle, Plus } from 'lucide-react';
+import { UserProfileModal } from '../common/UserProfileModal';
+import { Truck, User, FileText, Phone, MapPin, Award, Shield, CheckCircle, Plus, Edit3 } from 'lucide-react';
 
 export const DriverProfileView: React.FC = () => {
   const { user, driver, vehicles } = useAuth();
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const primaryVehicle = vehicles[0];
 
   return (
@@ -33,11 +35,20 @@ export const DriverProfileView: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl border border-slate-100 dark:border-slate-700/50">
-            <Award className="w-8 h-8 text-amber-500" />
-            <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400 block">Viagens Concluídas</span>
-              <span className="text-lg font-black text-slate-900 dark:text-white">{driver?.completedTrips || 0} entregas</span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsEditModalOpen(true)}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 cursor-pointer flex items-center gap-1.5 transition-all"
+            >
+              <Edit3 className="w-4 h-4" />
+              <span>Editar Meu Perfil</span>
+            </button>
+            <div className="hidden sm:flex items-center gap-3 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-100 dark:border-slate-700/50">
+              <Award className="w-6 h-6 text-amber-500" />
+              <div>
+                <span className="text-[9px] uppercase font-bold text-slate-400 block">Viagens Concluídas</span>
+                <span className="text-base font-black text-slate-900 dark:text-white">{driver?.completedTrips || 0} entregas</span>
+              </div>
             </div>
           </div>
         </div>
@@ -108,6 +119,12 @@ export const DriverProfileView: React.FC = () => {
           ))
         )}
       </div>
+
+      {/* Driver Profile Edit Modal */}
+      <UserProfileModal 
+        isOpen={isEditModalOpen} 
+        onClose={() => setIsEditModalOpen(false)} 
+      />
 
     </div>
   );

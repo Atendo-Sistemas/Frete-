@@ -59,6 +59,14 @@ export const FreightFormModal: React.FC<FreightFormModalProps> = ({ isOpen, onCl
   const [weightKg, setWeightKg] = useState('8500');
   const [volumeCount, setVolumeCount] = useState('16');
   const [cargoNotes, setCargoNotes] = useState('Carga com NF e Manifesto emitidos. Carga segurada.');
+  
+  // Detalhes da Carga / Veículo Transportado
+  const [vehicleProduct, setVehicleProduct] = useState('');
+  const [chassis, setChassis] = useState('');
+  const [nfVehicleSale, setNfVehicleSale] = useState('');
+  const [nfFacchini, setNfFacchini] = useState('');
+  const [trackerStatus, setTrackerStatus] = useState('INSTALADO');
+  const [platesStatus, setPlatesStatus] = useState('S/ PLACA');
 
   const [vehicleType, setVehicleType] = useState<VehicleType>('TRUCK');
   const [vehicleBrand, setVehicleBrand] = useState('Volkswagen');
@@ -96,6 +104,12 @@ export const FreightFormModal: React.FC<FreightFormModalProps> = ({ isOpen, onCl
       setWeightKg(String(freightToEdit.cargo.weightKg));
       setVolumeCount(String(freightToEdit.cargo.volumeCount || 1));
       setCargoNotes(freightToEdit.cargo.notes || '');
+      setVehicleProduct(freightToEdit.cargo.vehicleProduct || '');
+      setChassis(freightToEdit.cargo.chassis || '');
+      setNfVehicleSale(freightToEdit.cargo.nfVehicleSale || '');
+      setNfFacchini(freightToEdit.cargo.nfFacchini || '');
+      setTrackerStatus(freightToEdit.cargo.trackerStatus || 'INSTALADO');
+      setPlatesStatus(freightToEdit.cargo.platesStatus || 'S/ PLACA');
 
       setVehicleType(freightToEdit.requirements.vehicleType);
       if (freightToEdit.requirements.vehicleBrand) {
@@ -189,7 +203,13 @@ export const FreightFormModal: React.FC<FreightFormModalProps> = ({ isOpen, onCl
           weightKg: Number(weightKg),
           volumeCount: Number(volumeCount),
           notes: cargoNotes,
-          requiresInsurance: true
+          requiresInsurance: true,
+          vehicleProduct,
+          chassis,
+          nfVehicleSale,
+          nfFacchini,
+          trackerStatus,
+          platesStatus
         },
         requirements: {
           vehicleType,
@@ -506,9 +526,10 @@ export const FreightFormModal: React.FC<FreightFormModalProps> = ({ isOpen, onCl
                   <select
                     value={cargoType}
                     required={fCargoType.required}
-                    onChange={e => setCargoType(e.target.value as CargoType)}
+                    onChange={e => setCargoType(e.target.value as CargoType | 'VEICULO')}
                     className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium"
                   >
+                    <option value="VEICULO">Veículo / Caminhão / Implemento</option>
                     <option value="GERAL">Carga Geral</option>
                     <option value="ALIMENTOS">Alimentos / Bebidas</option>
                     <option value="REFRIGERADA">Refrigerada / Congelada</option>
@@ -631,6 +652,75 @@ export const FreightFormModal: React.FC<FreightFormModalProps> = ({ isOpen, onCl
                 </div>
               )}
             </div>
+
+            {/* Campos de Transporte de Veículos */}
+            {cargoType === 'VEICULO' && (
+              <div className="pt-3 border-t border-slate-200 dark:border-slate-700 mt-2 space-y-3">
+                <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block">Detalhes do Veículo Transportado (Ocultos até o aceite)</span>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">Produto Veículo</label>
+                    <input
+                      type="text"
+                      value={vehicleProduct}
+                      onChange={e => setVehicleProduct(e.target.value.toUpperCase())}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
+                      placeholder="Ex: CR REBAIXADA ALUMÍNIO"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">Chassi</label>
+                    <input
+                      type="text"
+                      value={chassis}
+                      onChange={e => setChassis(e.target.value.toUpperCase())}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
+                      placeholder="Nº do Chassi"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">Status Rastreador</label>
+                    <input
+                      type="text"
+                      value={trackerStatus}
+                      onChange={e => setTrackerStatus(e.target.value.toUpperCase())}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
+                      placeholder="Ex: INSTALADO"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">NF Venda Veículo</label>
+                    <input
+                      type="text"
+                      value={nfVehicleSale}
+                      onChange={e => setNfVehicleSale(e.target.value)}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
+                      placeholder="Ex: 2588891"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">NF Venda Facchini</label>
+                    <input
+                      type="text"
+                      value={nfFacchini}
+                      onChange={e => setNfFacchini(e.target.value)}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
+                      placeholder="Ex: 0365381"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">Placas</label>
+                    <input
+                      type="text"
+                      value={platesStatus}
+                      onChange={e => setPlatesStatus(e.target.value.toUpperCase())}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs"
+                      placeholder="Ex: S/ PLACA"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Section 3: Pagamento */}

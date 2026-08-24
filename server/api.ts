@@ -11,7 +11,8 @@ import {
   FormDefinition, 
   FormResponse,
   UserRole,
-  WhatsAppConfig
+  WhatsAppConfig,
+  TripExpenseReport
 } from '../src/types';
 
 export const apiRouter = Router();
@@ -770,6 +771,151 @@ apiRouter.post('/users', (req: AuthenticatedRequest, res: Response) => {
   res.status(201).json(newUser);
 });
 
+apiRouter.put('/users/:id', (req: AuthenticatedRequest, res: Response) => {
+  const user = db.users.find(u => u.id === req.params.id);
+  if (!user) {
+    return res.status(404).json({ error: 'Usuário não encontrado' });
+  }
+
+  // Security check: only Super Admin or Admin of same tenant, or user editing their own profile
+  const isSuperAdmin = req.user?.role === 'SUPER_ADMIN';
+  const isSelf = req.user?.id === user.id;
+  const isSameTenantAdmin = req.user?.role === 'ADMIN' && req.user?.tenantId === user.tenantId;
+
+  if (!isSuperAdmin && !isSelf && !isSameTenantAdmin) {
+    return res.status(403).json({ error: 'Você não tem permissão para editar este usuário' });
+  }
+
+  const { name, email, phone, role, status, password } = req.body;
+
+  if (name) user.name = name;
+  if (email) user.email = email;
+  if (phone) user.phone = phone;
+  if (password) user.password = password;
+
+  // Only admins can change role and status
+  if ((isSuperAdmin || isSameTenantAdmin) && role) {
+    user.role = role;
+  }
+  if ((isSuperAdmin || isSameTenantAdmin) && status) {
+    user.status = status;
+  }
+
+  user.updatedAt = new Date().toISOString();
+
+  // If this user is also a driver, sync their name, email, and phone
+  if (user.driverId) {
+    const driver = db.drivers.find(d => d.id === user.driverId || d.userId === user.id);
+    if (driver) {
+      if (name) driver.name = name;
+      if (email) driver.email = email;
+      if (phone) driver.phone = phone;
+    }
+  }
+
+  db.addAuditLog({
+    tenantId: user.tenantId || undefined,
+    userId: req.user?.id || 'system',
+    userName: req.user?.name || 'Sistema',
+    userRole: req.user?.role || 'ADMIN',
+    action: 'ATUALIZAR_USUARIO',
+    entity: 'User',
+    entityId: user.id,
+    details: `Usuário ${user.name} atualizado com sucesso`
+  });
+
+  res.json(user);
+});
+
+apiRouter.delete('/users/:id', (req: AuthenticatedRequest, res: Response) => {
+  const index = db.users.findIndex(u => u.id === req.params.id);
+  if (index === -1) {
+    return res.status(404).json({ error: 'Usuário não encontrado' });
+  }
+
+  const targetUser = db.users[index];
+
+  // Prevent deleting yourself
+  if (req.user?.id === targetUser.id) {
+    return res.status(400).json({ error: 'Não é possível excluir seu próprio usuário logado' });
+  }
+
+  const isSuperAdmin = req.user?.role === 'SUPER_ADMIN';
+  const isSameTenantAdmin = req.user?.role === 'ADMIN' && req.user?.tenantId === targetUser.tenantId;
+
+  if (!isSuperAdmin && !isSameTenantAdmin) {
+    return res.status(403).json({ error: 'Você não tem permissão para excluir este usuário' });
+  }
+
+  db.users.splice(index, 1);
+
+  db.addAuditLog({
+    tenantId: targetUser.tenantId || undefined,
+    userId: req.user?.id || 'system',
+    userName: req.user?.name || 'Sistema',
+    userRole: req.user?.role || 'ADMIN',
+    action: 'EXCLUIR_USUARIO',
+    entity: 'User',
+    entityId: targetUser.id,
+    details: `Usuário ${targetUser.name} (${targetUser.email}) excluído`
+  });
+
+  res.json({ success: true, message: 'Usuário excluído com sucesso' });
+});
+
+// Update own profile
+apiRouter.put('/auth/profile', (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Não autenticado' });
+  }
+
+  const user = db.users.find(u => u.id === req.user?.id);
+  if (!user) {
+    return res.status(404).json({ error: 'Usuário não encontrado' });
+  }
+
+  const { name, email, phone, password } = req.body;
+  if (name) user.name = name;
+  if (email) user.email = email;
+  if (phone) user.phone = phone;
+  if (password) user.password = password;
+
+  user.updatedAt = new Date().toISOString();
+
+  // If driver, sync driver info
+  let updatedDriver: Driver | undefined;
+  if (user.driverId) {
+    const driver = db.drivers.find(d => d.id === user.driverId || d.userId === user.id);
+    if (driver) {
+      if (name) driver.name = name;
+      if (email) driver.email = email;
+      if (phone) driver.phone = phone;
+      if (req.body.address) driver.address = req.body.address;
+      if (req.body.city) driver.city = req.body.city;
+      if (req.body.state) driver.state = req.body.state;
+      if (req.body.zipCode) driver.zipCode = req.body.zipCode;
+      updatedDriver = driver;
+    }
+  }
+
+  db.addAuditLog({
+    tenantId: user.tenantId || undefined,
+    userId: user.id,
+    userName: user.name,
+    userRole: user.role,
+    action: 'ATUALIZAR_PERFIL',
+    entity: 'User',
+    entityId: user.id,
+    details: `Perfil de usuário atualizado pelo próprio titular`
+  });
+
+  res.json({
+    success: true,
+    user,
+    driver: updatedDriver
+  });
+});
+
 /* =========================================================================
    4. DRIVERS & VEHICLES MANAGEMENT
    ========================================================================= */
@@ -920,7 +1066,8 @@ apiRouter.post('/freights', (req: AuthenticatedRequest, res: Response) => {
     requirements,
     payment,
     publishImmediately,
-    distanceKm
+    distanceKm,
+    customData
   } = req.body;
 
   if (!origin?.city || !origin?.state || !destination?.city || !destination?.state || !payment?.price) {
@@ -999,7 +1146,8 @@ apiRouter.post('/freights', (req: AuthenticatedRequest, res: Response) => {
     createdByUserId: req.user!.id,
     createdByName: req.user!.name,
     createdAt: now,
-    updatedAt: now
+    updatedAt: now,
+    customData
   };
 
   db.freights.unshift(newFreight);
@@ -1371,11 +1519,33 @@ apiRouter.post('/forms/responses', (req: AuthenticatedRequest, res: Response) =>
   const now = new Date().toISOString();
 
   if (existingResponse) {
-    // Update existing response
-    existingResponse.answers = {
-      ...(existingResponse.answers || {}),
+    // IMMUTABILITY RULE: If origin was already signed and saved, preserve origin answers and signature
+    const prevAnswers = existingResponse.answers || {};
+    const originAlreadySigned = Boolean(prevAnswers.origem?.assinado && prevAnswers.origem?.signatureImage);
+
+    let updatedAnswers = {
+      ...prevAnswers,
       ...(answers || {})
     };
+
+    if (originAlreadySigned) {
+      // Keep locked origin fields strictly untouched
+      updatedAnswers.talaoNumber = prevAnswers.talaoNumber || updatedAnswers.talaoNumber;
+      updatedAnswers.cliente = prevAnswers.cliente || updatedAnswers.cliente;
+      updatedAnswers.clienteEmail = prevAnswers.clienteEmail || updatedAnswers.clienteEmail;
+      updatedAnswers.clienteTelefone = prevAnswers.clienteTelefone || updatedAnswers.clienteTelefone;
+      updatedAnswers.retirada = prevAnswers.retirada || updatedAnswers.retirada;
+      updatedAnswers.veiculo = prevAnswers.veiculo || updatedAnswers.veiculo;
+      updatedAnswers.documentos = prevAnswers.documentos || updatedAnswers.documentos;
+      updatedAnswers.avarias = prevAnswers.avarias || updatedAnswers.avarias;
+      updatedAnswers.equipamentos = prevAnswers.equipamentos || updatedAnswers.equipamentos;
+      updatedAnswers.origem = prevAnswers.origem || updatedAnswers.origem;
+      updatedAnswers.condutor = prevAnswers.condutor || updatedAnswers.condutor;
+      updatedAnswers.condutorTelefone = prevAnswers.condutorTelefone || updatedAnswers.condutorTelefone;
+    }
+
+    // Update existing response
+    existingResponse.answers = updatedAnswers;
     if (stage) existingResponse.stage = stage;
     if (isDraft !== undefined) existingResponse.isDraft = isDraft;
     existingResponse.updatedAt = now;
@@ -1726,6 +1896,76 @@ apiRouter.get('/forms/responses', (req: AuthenticatedRequest, res: Response) => 
   res.json(responses);
 });
 
+// Get next sequential talão number (e.g. 001, 002, 003...)
+apiRouter.get('/forms/next-talao', (req: AuthenticatedRequest, res: Response) => {
+  const nextNumber = db.getNextTalaoNumber();
+  res.json({ nextNumber });
+});
+
+// Dispatch Digital Checklist Receipt via Email and/or WhatsApp with Masked Data
+apiRouter.post('/forms/send-dispatch', async (req: AuthenticatedRequest, res: Response) => {
+  const { 
+    responseId, 
+    stage, 
+    talaoNumber, 
+    freightCode, 
+    recipientType, 
+    recipientName, 
+    recipientEmail, 
+    recipientPhone, 
+    maskedData,
+    receiptText
+  } = req.body;
+
+  const tenantId = req.user?.tenantId || 'tenant-translog-01';
+  const cleanPhone = recipientPhone ? formatPhoneForWhatsApp(recipientPhone) : '';
+
+  let emailStatus = 'NAO_INFORMADO';
+  if (recipientEmail && recipientEmail.includes('@')) {
+    emailStatus = 'ENVIADO';
+    // Create system notification for email dispatch
+    db.notifications.unshift({
+      id: `notif-email-${Date.now()}`,
+      tenantId,
+      userId: req.user!.id,
+      title: `📧 Comprovante de Checklist #${talaoNumber || '001'} Enviado por E-mail`,
+      message: `Comprovante da etapa [${stage || 'VISTORIA'}] transmitido com sucesso para ${recipientEmail} (${recipientName || 'Responsável'}).`,
+      read: false,
+      createdAt: new Date().toISOString(),
+      type: 'STATUS_ATUALIZADO'
+    });
+  }
+
+  // Generate standard WhatsApp share link if phone exists
+  let whatsappLink = '';
+  if (cleanPhone && receiptText) {
+    whatsappLink = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(receiptText)}`;
+  } else if (receiptText) {
+    whatsappLink = `https://api.whatsapp.com/send?text=${encodeURIComponent(receiptText)}`;
+  }
+
+  // Audit log
+  db.addAuditLog({
+    tenantId,
+    userId: req.user!.id,
+    userName: req.user!.name,
+    userRole: req.user!.role,
+    action: 'DISPARO_COMPROVANTE_CHECKLIST',
+    entity: 'ChecklistReceipt',
+    entityId: responseId || `talao-${talaoNumber}`,
+    details: `Disparo de comprovante do Talão Nº ${talaoNumber || '001'} (${stage || 'VISTORIA'}) para ${recipientName || 'Responsável'}. E-mail: ${recipientEmail || 'N/A'} [${emailStatus}], WhatsApp: ${cleanPhone || 'N/A'}`
+  });
+
+  res.json({
+    success: true,
+    emailStatus,
+    recipientEmail: recipientEmail || null,
+    recipientPhone: cleanPhone || null,
+    whatsappLink,
+    sentAt: new Date().toISOString()
+  });
+});
+
 /* =========================================================================
    9. NOTIFICATIONS
    ========================================================================= */
@@ -2024,6 +2264,215 @@ apiRouter.post('/saas/config', (req: AuthenticatedRequest, res: Response) => {
   });
 
   res.json({ success: true, config: db.saasGlobalConfig });
+});
+
+/* =========================================================================
+   14. TRIP EXPENSES & ACCOUNTABILITY (PRESTAÇÃO DE CONTAS ELO LOG)
+   ========================================================================= */
+
+// List trip expense reports
+apiRouter.get('/expenses', (req: AuthenticatedRequest, res: Response) => {
+  let list = db.tripExpenses || [];
+  const { freightId, driverId, status } = req.query;
+
+  if (req.user?.role === 'MOTORISTA') {
+    // Drivers only see their own reports
+    list = list.filter(e => e.driverId === req.user?.id || (req.user?.name && e.driverName === req.user.name));
+  } else if (req.user?.role !== 'SUPER_ADMIN') {
+    // Tenant users see their company's reports
+    list = list.filter(e => !e.tenantId || e.tenantId === req.user?.tenantId);
+  }
+
+  if (freightId) {
+    list = list.filter(e => e.freightId === freightId);
+  }
+
+  if (driverId) {
+    list = list.filter(e => e.driverId === driverId);
+  }
+
+  if (status) {
+    list = list.filter(e => e.status === status);
+  }
+
+  res.json(list);
+});
+
+// Get single report
+apiRouter.get('/expenses/:id', (req: AuthenticatedRequest, res: Response) => {
+  const report = (db.tripExpenses || []).find(e => e.id === req.params.id);
+  if (!report) {
+    return res.status(404).json({ error: 'Relatório de prestação de contas não encontrado' });
+  }
+
+  if (req.user?.role === 'MOTORISTA' && report.driverId !== req.user?.id && report.driverName !== req.user?.name) {
+    return res.status(403).json({ error: 'Acesso não autorizado a este relatório' });
+  }
+
+  res.json(report);
+});
+
+// Create new report
+apiRouter.post('/expenses', (req: AuthenticatedRequest, res: Response) => {
+  const data = req.body;
+  if (!data) {
+    return res.status(400).json({ error: 'Dados da prestação de contas inválidos' });
+  }
+
+  const items = Array.isArray(data.items) ? data.items : [];
+  const totalExpenses = items.reduce((acc: number, it: any) => acc + (Number(it.amount) || 0), 0);
+  const totalLiters = items
+    .filter((it: any) => it.category === 'ABASTECIMENTO' && it.liters)
+    .reduce((acc: number, it: any) => acc + (Number(it.liters) || 0), 0);
+
+  const initialKm = Number(data.initialKm) || 0;
+  const finalKm = Number(data.finalKm) || 0;
+  const totalKm = finalKm > initialKm ? finalKm - initialKm : (Number(data.totalKm) || 0);
+
+  const averageKmPerLiter = totalLiters > 0 && totalKm > 0 ? totalKm / totalLiters : 0;
+  const costPerKm = totalKm > 0 ? totalExpenses / totalKm : 0;
+
+  const advanceAmount = Number(data.advanceAmount) || 0;
+  const balanceAmount = advanceAmount - totalExpenses;
+  const balanceStatus = balanceAmount >= 0 ? 'A_DEVOLVER' : 'REEMBOLSO_A_RECEBER';
+
+  const newReport: TripExpenseReport = {
+    id: `exp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    tenantId: req.user?.tenantId || data.tenantId,
+    freightId: data.freightId,
+    freightCode: data.freightCode,
+    driverId: req.user?.role === 'MOTORISTA' ? req.user.id : (data.driverId || req.user?.id || 'driver-anon'),
+    driverName: req.user?.role === 'MOTORISTA' ? req.user.name : (data.driverName || req.user?.name || 'Motorista'),
+    driverPhone: data.driverPhone || req.user?.phone,
+    vehiclePlate: data.vehiclePlate,
+    startDate: data.startDate || new Date().toISOString().split('T')[0],
+    endDate: data.endDate || new Date().toISOString().split('T')[0],
+    tripDays: Number(data.tripDays) || 1,
+    initialKm,
+    finalKm,
+    totalKm,
+    totalLiters,
+    averageKmPerLiter,
+    costPerKm,
+    advanceAmount,
+    totalExpenses,
+    balanceAmount,
+    balanceStatus,
+    status: data.status || 'ENVIADO',
+    items,
+    generalNotes: data.generalNotes,
+    reviewerNotes: data.reviewerNotes,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  if (!db.tripExpenses) {
+    db.tripExpenses = [];
+  }
+  db.tripExpenses.unshift(newReport);
+
+  db.addAuditLog({
+    tenantId: newReport.tenantId,
+    userId: req.user?.id || 'system',
+    userName: req.user?.name || 'Sistema',
+    userRole: req.user?.role || 'MOTORISTA',
+    action: 'CRIACAO_PRESTACAO_CONTAS',
+    entity: 'TripExpenseReport',
+    entityId: newReport.id,
+    details: `Prestação de contas criada para a viagem/frete ${newReport.freightCode || newReport.id} (Total: R$ ${totalExpenses.toFixed(2)})`
+  });
+
+  res.status(201).json(newReport);
+});
+
+// Update report / change status / approve
+apiRouter.put('/expenses/:id', (req: AuthenticatedRequest, res: Response) => {
+  const index = (db.tripExpenses || []).findIndex(e => e.id === req.params.id);
+  if (index === -1) {
+    return res.status(404).json({ error: 'Relatório de despesas não encontrado' });
+  }
+
+  const existing = db.tripExpenses[index];
+  const updates = req.body;
+
+  const items = Array.isArray(updates.items) ? updates.items : existing.items;
+  const totalExpenses = items.reduce((acc: number, it: any) => acc + (Number(it.amount) || 0), 0);
+  const totalLiters = items
+    .filter((it: any) => it.category === 'ABASTECIMENTO' && it.liters)
+    .reduce((acc: number, it: any) => acc + (Number(it.liters) || 0), 0);
+
+  const initialKm = updates.initialKm !== undefined ? Number(updates.initialKm) : existing.initialKm;
+  const finalKm = updates.finalKm !== undefined ? Number(updates.finalKm) : existing.finalKm;
+  const totalKm = finalKm > initialKm ? finalKm - initialKm : (updates.totalKm !== undefined ? Number(updates.totalKm) : existing.totalKm);
+
+  const averageKmPerLiter = totalLiters > 0 && totalKm > 0 ? totalKm / totalLiters : existing.averageKmPerLiter;
+  const costPerKm = totalKm > 0 ? totalExpenses / totalKm : existing.costPerKm;
+
+  const advanceAmount = updates.advanceAmount !== undefined ? Number(updates.advanceAmount) : existing.advanceAmount;
+  const balanceAmount = advanceAmount - totalExpenses;
+  const balanceStatus = updates.balanceStatus || (balanceAmount >= 0 ? 'A_DEVOLVER' : 'REEMBOLSO_A_RECEBER');
+
+  const updatedReport: TripExpenseReport = {
+    ...existing,
+    ...updates,
+    items,
+    totalExpenses,
+    totalLiters,
+    initialKm,
+    finalKm,
+    totalKm,
+    averageKmPerLiter,
+    costPerKm,
+    advanceAmount,
+    balanceAmount,
+    balanceStatus,
+    updatedAt: new Date().toISOString()
+  };
+
+  if (updates.status === 'APROVADO' && existing.status !== 'APROVADO') {
+    updatedReport.approvedAt = new Date().toISOString();
+    updatedReport.reviewedBy = req.user?.name;
+    updatedReport.reviewedAt = new Date().toISOString();
+  }
+
+  db.tripExpenses[index] = updatedReport;
+
+  db.addAuditLog({
+    tenantId: updatedReport.tenantId,
+    userId: req.user?.id || 'system',
+    userName: req.user?.name || 'Sistema',
+    userRole: req.user?.role || 'ADMIN',
+    action: 'ATUALIZACAO_PRESTACAO_CONTAS',
+    entity: 'TripExpenseReport',
+    entityId: updatedReport.id,
+    details: `Prestação de contas #${updatedReport.id.slice(0, 8)} atualizada (Status: ${updatedReport.status})`
+  });
+
+  res.json(updatedReport);
+});
+
+// Delete report
+apiRouter.delete('/expenses/:id', (req: AuthenticatedRequest, res: Response) => {
+  const index = (db.tripExpenses || []).findIndex(e => e.id === req.params.id);
+  if (index === -1) {
+    return res.status(404).json({ error: 'Relatório não encontrado' });
+  }
+
+  const report = db.tripExpenses[index];
+  db.tripExpenses.splice(index, 1);
+
+  db.addAuditLog({
+    tenantId: report.tenantId,
+    userId: req.user?.id || 'system',
+    userName: req.user?.name || 'Sistema',
+    userRole: req.user?.role || 'ADMIN',
+    action: 'EXCLUSAO_PRESTACAO_CONTAS',
+    entity: 'TripExpenseReport',
+    entityId: report.id,
+    details: `Prestação de contas #${report.id} removida`
+  });
+
+  res.json({ success: true, message: 'Relatório excluído com sucesso' });
 });
 
 

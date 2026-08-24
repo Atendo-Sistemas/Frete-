@@ -23,6 +23,7 @@ interface AuthContextType {
   switchUser: (userId: string) => Promise<void>;
   logout: () => void;
   refreshProfile: () => Promise<void>;
+  updateUserProfile: (data: Partial<User> & { address?: string; city?: string; state?: string; zipCode?: string; password?: string }) => Promise<{ success: boolean; user: User }>;
   refreshNotifications: () => Promise<void>;
   markNotificationAsRead: (id: string) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
@@ -100,6 +101,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setAuthToken('');
   }, []);
 
+  const updateUserProfile = async (data: Partial<User> & { address?: string; city?: string; state?: string; zipCode?: string; password?: string }) => {
+    const result = await api.updateProfile(data);
+    if (result.user) {
+      setUser(result.user);
+      if (result.driver) {
+        setDriver(result.driver);
+      }
+    }
+    return result;
+  };
+
   useEffect(() => {
     const init = async () => {
       const token = localStorage.getItem('frete_auth_token');
@@ -138,6 +150,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         switchUser,
         logout,
         refreshProfile,
+        updateUserProfile,
         refreshNotifications,
         markNotificationAsRead,
         markAllNotificationsAsRead

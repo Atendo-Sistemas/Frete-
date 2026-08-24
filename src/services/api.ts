@@ -12,7 +12,8 @@ import {
   DashboardStats,
   WhatsAppConfig,
   WhatsAppNotificationPayload,
-  SaaSGlobalConfig
+  SaaSGlobalConfig,
+  TripExpenseReport
 } from '../types';
 
 let currentToken: string = 'user-admin-1';
@@ -182,6 +183,26 @@ export const api = {
   async createUser(data: Partial<User>) {
     return request<User>('/users', {
       method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async updateUser(id: string, data: Partial<User>) {
+    return request<User>(`/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async deleteUser(id: string) {
+    return request<{ success: boolean; message: string }>(`/users/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  async updateProfile(data: Partial<User> & { address?: string; city?: string; state?: string; zipCode?: string; password?: string }) {
+    return request<{ success: boolean; user: User; driver?: Driver }>('/auth/profile', {
+      method: 'PUT',
       body: JSON.stringify(data)
     });
   },
@@ -390,6 +411,35 @@ export const api = {
     return request<FormResponse[]>(`/forms/responses?${query.toString()}`);
   },
 
+  async getNextTalaoNumber() {
+    return request<{ nextNumber: string }>('/forms/next-talao');
+  },
+
+  async sendChecklistDispatch(data: {
+    responseId?: string;
+    stage: 'RETIRADA' | 'ENTREGA' | 'COMPLETO';
+    talaoNumber: string;
+    freightCode?: string;
+    recipientType: 'ORIGEM' | 'DESTINO' | 'CLIENTE';
+    recipientName?: string;
+    recipientEmail?: string;
+    recipientPhone?: string;
+    maskedData?: any;
+    receiptText: string;
+  }) {
+    return request<{
+      success: boolean;
+      emailStatus: string;
+      recipientEmail: string | null;
+      recipientPhone: string | null;
+      whatsappLink: string;
+      sentAt: string;
+    }>('/forms/send-dispatch', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
   // Notifications
   async getNotifications() {
     return request<AppNotification[]>('/notifications');
@@ -423,9 +473,6 @@ export const api = {
   async deleteDriver(id: string) {
     return request<{ success: boolean; message: string }>(`/drivers/${id}`, { method: 'DELETE' });
   },
-  async deleteUser(id: string) {
-    return request<{ success: boolean; message: string }>(`/users/${id}`, { method: 'DELETE' });
-  },
   async deleteForm(id: string) {
     return request<{ success: boolean; message: string }>(`/forms/${id}`, { method: 'DELETE' });
   },
@@ -442,6 +489,40 @@ export const api = {
     return request<{ success: boolean; config: SaaSGlobalConfig }>('/saas/config', {
       method: 'POST',
       body: JSON.stringify(data)
+    });
+  },
+
+  // Trip Expenses & Accountability (Prestação de Contas ELO LOG)
+  async getTripExpenses(params?: { freightId?: string; driverId?: string; status?: string }) {
+    const query = new URLSearchParams();
+    if (params?.freightId) query.append('freightId', params.freightId);
+    if (params?.driverId) query.append('driverId', params.driverId);
+    if (params?.status) query.append('status', params.status);
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return request<TripExpenseReport[]>(`/expenses${qs}`);
+  },
+
+  async getTripExpense(id: string) {
+    return request<TripExpenseReport>(`/expenses/${id}`);
+  },
+
+  async createTripExpense(data: Partial<TripExpenseReport>) {
+    return request<TripExpenseReport>('/expenses', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async updateTripExpense(id: string, data: Partial<TripExpenseReport>) {
+    return request<TripExpenseReport>(`/expenses/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async deleteTripExpense(id: string) {
+    return request<{ success: boolean; message: string }>(`/expenses/${id}`, {
+      method: 'DELETE'
     });
   }
 };

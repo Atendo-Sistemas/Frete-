@@ -6,7 +6,7 @@ interface SaaSContextType {
   config: SaaSGlobalConfig | null;
   loading: boolean;
   refreshConfig: () => Promise<void>;
-  getField: (formName: 'userForm' | 'freightForm' | 'driverForm', fieldId: string) => FormFieldSetting | null;
+  getField: (formName: 'userForm' | 'freightForm' | 'driverForm' | 'expenseForm', fieldId: string) => FormFieldSetting | null;
 }
 
 const SaaSContext = createContext<SaaSContextType | undefined>(undefined);
@@ -96,12 +96,12 @@ export const SaaSProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Background color mappings
     let bgLight = '#FAFAFA';
-    let bgDark = '#0A0A0A';
+    let bgDark = '#111827';
     if (systemBackground === 'warm') {
       bgLight = '#FCFAF7';
-      bgDark = '#120F0D';
+      bgDark = '#181412';
     } else if (systemBackground === 'slate') {
-      bgLight = '#F1F5F9';
+      bgLight = '#F8FAFC';
       bgDark = '#0F172A';
     }
 
@@ -146,8 +146,20 @@ export const SaaSProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .rounded-lg { border-radius: ${rValMinus} !important; }
 
       /* Global Layout Backgrounds */
-      .bg-slate-100 { background-color: ${bgLight} !important; }
-      .dark\\:bg-slate-950 { background-color: ${bgDark} !important; }
+      html {
+        background-color: ${bgLight};
+      }
+      html.dark {
+        background-color: ${bgDark};
+      }
+      body {
+        background-color: ${bgLight};
+        color: #0f172a;
+      }
+      .dark body {
+        background-color: ${bgDark};
+        color: #f8fafc;
+      }
     `;
 
     // Dynamic Navbar styles
@@ -183,16 +195,16 @@ export const SaaSProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       `;
     } else {
-      // Default dark style
+      // 'dark' or default: light background in light mode, dark background in dark mode
       cssRules += `
         #navbar-main-container {
-          background-color: #0f172a !important;
-          border-color: #1e293b !important;
-          color: #ffffff !important;
+          background-color: #ffffff !important;
+          border-color: #e2e8f0 !important;
+          color: #0f172a !important;
         }
         .dark #navbar-main-container {
-          background-color: #020617 !important;
-          border-color: #0f172a !important;
+          background-color: #0f172a !important;
+          border-color: #1e293b !important;
           color: #ffffff !important;
         }
       `;
@@ -201,7 +213,7 @@ export const SaaSProvider: React.FC<{ children: React.ReactNode }> = ({ children
     styleEl.innerHTML = cssRules;
   };
 
-  const getField = (formName: 'userForm' | 'freightForm' | 'driverForm', fieldId: string): FormFieldSetting | null => {
+  const getField = (formName: 'userForm' | 'freightForm' | 'driverForm' | 'expenseForm', fieldId: string): FormFieldSetting | null => {
     if (!config?.formFields) return null;
     const list = config.formFields[formName];
     if (!list) return null;

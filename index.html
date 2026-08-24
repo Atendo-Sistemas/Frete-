@@ -14,10 +14,11 @@
     <meta name="twitter:card" content="summary_large_image" />
     <script>
       try {
-        if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        if (localStorage.getItem('theme') === 'dark') {
           document.documentElement.classList.add('dark');
         } else {
           document.documentElement.classList.remove('dark');
+          localStorage.setItem('theme', 'light');
         }
       } catch (e) {}
     </script>
@@ -27,4 +28,3 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

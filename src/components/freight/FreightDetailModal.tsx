@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Freight, FreightStatus, FormResponse } from '../../types';
 import { StatusBadge, VehicleBadge } from '../common/Badge';
+import { LiveRouteTrackingModal } from '../tracking/LiveRouteTrackingModal';
+import { TripExpenseModal } from '../expenses/TripExpenseModal';
 import { api } from '../../services/api';
 import { 
   Truck, 
@@ -18,7 +20,9 @@ import {
   AlertCircle,
   Car,
   Trash2,
-  Pencil
+  Pencil,
+  Navigation,
+  Receipt
 } from 'lucide-react';
 
 interface FreightDetailModalProps {
@@ -43,6 +47,8 @@ export const FreightDetailModal: React.FC<FreightDetailModalProps> = ({
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [formResponses, setFormResponses] = useState<FormResponse[]>([]);
   const [loadingResponses, setLoadingResponses] = useState(false);
+  const [isTrackingOpen, setIsTrackingOpen] = useState(false);
+  const [isExpenseOpen, setIsExpenseOpen] = useState(false);
 
   if (!freight) return null;
 
@@ -89,12 +95,32 @@ export const FreightDetailModal: React.FC<FreightDetailModalProps> = ({
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsExpenseOpen(true)}
+              className="py-1.5 px-3 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+              title="Prestação de Contas & Despesas da Viagem"
+            >
+              <Receipt className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">💰 Despesas</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsTrackingOpen(true)}
+              className="py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+              title="Abrir Rastreamento do Trajeto no Mapa em Tempo Real"
+            >
+              <Navigation className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">🛰️ Rastreamento GPS</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Assigned Driver Card (If Reserved/In Transit/Completed) */}
@@ -198,6 +224,41 @@ export const FreightDetailModal: React.FC<FreightDetailModalProps> = ({
           </div>
         </div>
 
+        {/* Detalhes do Veículo Transportado (Liberado após aceite) */}
+        {freight.cargo.type === 'VEICULO' && freight.status !== 'PUBLISHED' && freight.status !== 'DRAFT' && (
+          <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-800/30">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-blue-800 dark:text-blue-300 flex items-center gap-1.5 mb-3">
+              <Car className="w-4 h-4 text-blue-600" /> Detalhes do Veículo Transportado
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs">
+              <div>
+                <span className="text-slate-500 block font-semibold mb-0.5">Produto Veículo</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">{freight.cargo.vehicleProduct || '-'}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block font-semibold mb-0.5">Chassi</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">{freight.cargo.chassis || '-'}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block font-semibold mb-0.5">Status Rastreador</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">{freight.cargo.trackerStatus || '-'}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block font-semibold mb-0.5">NF Venda Veículo</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">{freight.cargo.nfVehicleSale || '-'}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block font-semibold mb-0.5">NF Venda Facchini</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">{freight.cargo.nfFacchini || '-'}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 block font-semibold mb-0.5">Placas</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">{freight.cargo.platesStatus || '-'}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* State Machine Status History Timeline */}
         <div className="space-y-3 pt-2">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
@@ -285,6 +346,23 @@ export const FreightDetailModal: React.FC<FreightDetailModalProps> = ({
               Fechar
             </button>
           </div>
+        )}
+
+        {/* Live Route Tracking Modal */}
+        {isTrackingOpen && (
+          <LiveRouteTrackingModal
+            freight={freight}
+            onClose={() => setIsTrackingOpen(false)}
+          />
+        )}
+
+        {/* Trip Expense & Accountability Modal */}
+        {isExpenseOpen && (
+          <TripExpenseModal
+            freight={freight}
+            isOpen={true}
+            onClose={() => setIsExpenseOpen(false)}
+          />
         )}
 
       </div>

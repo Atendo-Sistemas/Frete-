@@ -170,12 +170,12 @@ export const CompanyDashboard: React.FC = () => {
           <span className="text-[11px] text-teal-600/70 font-medium">entregas finalizadas</span>
         </div>
 
-        <div className="bg-slate-900 text-white p-4 rounded-xl shadow-2xs">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Faturamento Fretes</span>
-          <span className="text-lg sm:text-xl font-black text-emerald-400 block mt-1 truncate">
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Faturamento Fretes</span>
+          <span className="text-lg sm:text-xl font-black text-emerald-600 dark:text-emerald-400 block mt-1 truncate">
             R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
           </span>
-          <span className="text-[11px] text-slate-400 font-medium">valor total operado</span>
+          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">valor total operado</span>
         </div>
       </div>
 

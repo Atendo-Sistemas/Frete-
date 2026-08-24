@@ -3,6 +3,8 @@ import { useAuth } from '../../context/AuthContext';
 import { Freight, FreightStatus, FormDefinition } from '../../types';
 import { api } from '../../services/api';
 import { StatusBadge, VehicleBadge } from '../common/Badge';
+import { LiveRouteTrackingModal } from '../tracking/LiveRouteTrackingModal';
+import { TripExpenseModal } from '../expenses/TripExpenseModal';
 import confetti from 'canvas-confetti';
 import { 
   Truck, 
@@ -20,7 +22,8 @@ import {
   Check, 
   Sparkles,
   AlertCircle,
-  X
+  X,
+  Receipt
 } from 'lucide-react';
 
 interface DriverDashboardProps {
@@ -33,6 +36,8 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onOpenFormModa
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'available' | 'my-freights' | 'completed'>('available');
   const [selectedFreight, setSelectedFreight] = useState<Freight | null>(null);
+  const [trackingFreight, setTrackingFreight] = useState<Freight | null>(null);
+  const [expenseModalFreight, setExpenseModalFreight] = useState<Freight | null>(null);
   const [isAccepting, setIsAccepting] = useState(false);
   const [acceptMessage, setAcceptMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
@@ -605,6 +610,25 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onOpenFormModa
                         )}
                       </>
                     )}
+                    {/* Live GPS Route Tracking Modal Trigger */}
+                    <button
+                      type="button"
+                      onClick={() => setTrackingFreight(freight)}
+                      className="py-2.5 px-3 rounded-lg bg-blue-50 dark:bg-blue-950/60 border border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-200 font-bold text-xs hover:bg-blue-100 transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Navigation className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      <span>🛰️ Rastrear Trajeto GPS</span>
+                    </button>
+
+                    {/* Prestação de Contas & Despesas */}
+                    <button
+                      type="button"
+                      onClick={() => setExpenseModalFreight(freight)}
+                      className="py-2.5 px-3 rounded-lg bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 font-bold text-xs hover:bg-amber-100 transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Receipt className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                      <span>💰 Prestação de Contas</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -626,7 +650,7 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onOpenFormModa
             myCompletedList.map(freight => (
               <div
                 key={freight.id}
-                className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4"
+                className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
               >
                 <div>
                   <div className="flex items-center gap-2">
@@ -638,11 +662,29 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onOpenFormModa
                   </p>
                   <p className="text-xs text-slate-500">{freight.cargo.description}</p>
                 </div>
-                <div className="text-right">
-                  <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400 block">
-                    R$ {freight.payment.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
-                  <span className="text-[11px] text-slate-400">Pago via {freight.payment.paymentMethod}</span>
+                <div className="flex items-center justify-between sm:justify-end gap-3">
+                  <div className="text-left sm:text-right">
+                    <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400 block">
+                      R$ {freight.payment.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                    <span className="text-[11px] text-slate-400">Pago via {freight.payment.paymentMethod}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateStatus(freight.id, 'EM_TRANSITO')}
+                    className="py-1.5 px-3 rounded-lg bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 font-bold text-xs hover:bg-amber-100 transition-colors cursor-pointer flex items-center gap-1"
+                  >
+                    <Navigation className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Reabrir</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExpenseModalFreight(freight)}
+                    className="py-1.5 px-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 font-bold text-xs hover:bg-emerald-100 transition-colors cursor-pointer flex items-center gap-1"
+                  >
+                    <Receipt className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Despesas</span>
+                  </button>
                 </div>
               </div>
             ))
@@ -770,6 +812,26 @@ export const DriverDashboard: React.FC<DriverDashboardProps> = ({ onOpenFormModa
 
           </div>
         </div>
+      )}
+
+      {/* Live Route Tracking Modal */}
+      {trackingFreight && (
+        <LiveRouteTrackingModal
+          freight={trackingFreight}
+          onClose={() => setTrackingFreight(null)}
+        />
+      )}
+
+      {/* Trip Expense & Accountability Modal */}
+      {expenseModalFreight && (
+        <TripExpenseModal
+          freight={expenseModalFreight}
+          isOpen={true}
+          onClose={() => setExpenseModalFreight(null)}
+          onSuccess={() => {
+            setExpenseModalFreight(null);
+          }}
+        />
       )}
 
     </div>

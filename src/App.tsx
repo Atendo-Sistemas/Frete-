@@ -14,6 +14,7 @@ import { UserManager } from './components/users/UserManager';
 import { AuditLogViewer } from './components/audit/AuditLogViewer';
 import { SuperAdminDashboard } from './components/superadmin/SuperAdminDashboard';
 import { SaaSConfigPanel } from './components/superadmin/SaaSConfigPanel';
+import { ExpenseManager } from './components/expenses/ExpenseManager';
 import { GuestInstitutionalPage } from './components/common/GuestInstitutionalPage';
 import { FormDefinition } from './types';
 import { api } from './services/api';
@@ -34,11 +35,11 @@ const AppContent: React.FC = () => {
   // Automatically adjust active tab when switching demo roles
   useEffect(() => {
     if (user?.role === 'MOTORISTA') {
-      if (activeTab !== 'driver-portal' && activeTab !== 'driver-profile') {
+      if (activeTab !== 'driver-portal' && activeTab !== 'driver-profile' && activeTab !== 'expenses') {
         setActiveTab('driver-portal');
       }
     } else if (user?.role === 'SUPER_ADMIN') {
-      const validSuperAdminTabs = ['saas-tenants', 'freights', 'drivers', 'forms', 'users', 'audit', 'saas-config'];
+      const validSuperAdminTabs = ['saas-tenants', 'freights', 'drivers', 'expenses', 'forms', 'users', 'audit', 'saas-config'];
       if (!validSuperAdminTabs.includes(activeTab)) {
         setActiveTab('saas-tenants');
       }
@@ -64,7 +65,7 @@ const AppContent: React.FC = () => {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors">
+      <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors">
         <DemoSwitcher />
         <GuestInstitutionalPage onLoginSuccess={() => setActiveTab('freights')} />
       </div>
@@ -72,7 +73,7 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors">
       
       {/* Demo Account Switcher Bar */}
       <DemoSwitcher />
@@ -85,23 +86,28 @@ const AppContent: React.FC = () => {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 pb-16">
+      <main className="flex-1 w-full max-w-full pb-16">
         {isDriver ? (
           activeTab === 'driver-profile' ? (
             <DriverProfileView />
+          ) : activeTab === 'expenses' ? (
+            <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6">
+              <ExpenseManager currentUser={user} />
+            </div>
           ) : (
             <DriverDashboard onOpenFormModal={handleOpenFormModal} />
           )
         ) : (
-          <>
+          <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6">
             {activeTab === 'freights' && <CompanyDashboard />}
             {activeTab === 'drivers' && <DriverManager />}
+            {activeTab === 'expenses' && <ExpenseManager currentUser={user} />}
             {activeTab === 'forms' && <FormBuilder />}
             {activeTab === 'users' && <UserManager />}
             {activeTab === 'audit' && <AuditLogViewer />}
             {activeTab === 'saas-tenants' && <SuperAdminDashboard />}
             {activeTab === 'saas-config' && <SaaSConfigPanel />}
-          </>
+          </div>
         )}
       </main>
 
