@@ -5,6 +5,8 @@ import webpush from 'web-push';
 import nodemailer from 'nodemailer';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import fs from 'fs';
+import path from 'path';
 import { 
   User, 
   FreightStatus, 
@@ -274,6 +276,9 @@ apiRouter.post('/auth/login', async (req: AuthenticatedRequest, res: Response) =
   // Generate JWT
   const token = jwt.sign({ userId: targetUser.id }, JWT_SECRET, { expiresIn: '24h' });
 
+  // Save token to DB
+  db.saveAuthToken(token, targetUser.id, new Date(Date.now() + 24 * 60 * 60 * 1000));
+
   db.addAuditLog({
     tenantId: targetUser.tenantId || undefined,
     tenantName: targetUser.tenantId ? db.tenants.find(t => t.id === targetUser?.tenantId)?.name : 'Plataforma Global',
@@ -306,6 +311,9 @@ apiRouter.post('/auth/switch-demo', (req: AuthenticatedRequest, res: Response) =
 
   targetUser.lastLoginAt = new Date().toISOString();
   const token = jwt.sign({ userId: targetUser.id }, JWT_SECRET, { expiresIn: '24h' });
+
+  // Save token to DB
+  db.saveAuthToken(token, targetUser.id, new Date(Date.now() + 24 * 60 * 60 * 1000));
 
   const tenant = targetUser.tenantId ? db.tenants.find(t => t.id === targetUser.tenantId) || null : null;
   let driver = null;
@@ -463,6 +471,9 @@ apiRouter.post('/auth/verify-otp', (req: AuthenticatedRequest, res: Response) =>
 
   // Generate JWT token
   const token = jwt.sign({ userId: targetUser.id }, JWT_SECRET, { expiresIn: '24h' });
+
+  // Save token to DB
+  db.saveAuthToken(token, targetUser.id, new Date(Date.now() + 24 * 60 * 60 * 1000));
 
   db.addAuditLog({
     tenantId: targetUser.tenantId || undefined,
@@ -750,6 +761,9 @@ apiRouter.post('/auth/register-driver', async (req: AuthenticatedRequest, res: R
 
   const token = jwt.sign({ userId: newUserId }, JWT_SECRET, { expiresIn: '24h' });
 
+  // Save token to DB
+  db.saveAuthToken(token, newUserId, new Date(Date.now() + 24 * 60 * 60 * 1000));
+
   res.status(201).json({
     user: sanitizeUser(newUser),
     driver: newDriver,
@@ -778,7 +792,7 @@ apiRouter.post('/tenants', (req: AuthenticatedRequest, res: Response) => {
     return res.status(403).json({ error: 'Apenas Super Admin pode criar empresas' });
   }
 
-  const { name, legalName, cnpj, email, phone, city, state, plan } = req.body;
+  const { name, legalName, cnpj, email, phone, city, state, plan, allowedOperations } = req.body;
   const newTenant: Tenant = {
     id: `tenant-${Date.now()}`,
     name: name || 'Nova Transportadora',
@@ -794,6 +808,7 @@ apiRouter.post('/tenants', (req: AuthenticatedRequest, res: Response) => {
     state: state || 'SP',
     status: 'ATIVA',
     plan: plan || 'PROFISSIONAL',
+    allowedOperations: allowedOperations || ['CARGA_GERAL'],
     planLimits: {
       maxUsers: plan === 'EMPRESARIAL' ? 100 : plan === 'PROFISSIONAL' ? 25 : 5,
       maxDrivers: plan === 'EMPRESARIAL' ? 500 : plan === 'PROFISSIONAL' ? 100 : 20,
@@ -807,6 +822,14 @@ apiRouter.post('/tenants', (req: AuthenticatedRequest, res: Response) => {
   };
 
   db.tenants.push(newTenant);
+
+  // Notify via WhatsApp if phone is provided
+  if (phone) {
+    sendToWhatsAppGateway(db.globalWhatsAppConfig, {
+      number: phone.replace(/\D/g, ''),
+      body: `[ELO LOG] Bem-vindo! A empresa ${newTenant.name} foi criada com sucesso.`
+    }).catch(err => console.error('Failed to notify new tenant:', err));
+  }
 
   db.addAuditLog({
     userId: req.user.id,
@@ -832,7 +855,7 @@ apiRouter.put('/tenants/:id', (req: AuthenticatedRequest, res: Response) => {
   const tenant = db.tenants.find(t => t.id === req.params.id);
   if (!tenant) return res.status(404).json({ error: 'Empresa não encontrada' });
 
-  const { name, legalName, cnpj, email, phone, zipCode, address, number, neighborhood, city, state, plan, status } = req.body;
+  const { name, legalName, cnpj, email, phone, zipCode, address, number, neighborhood, city, state, plan, status, allowedOperations } = req.body;
   if (name) tenant.name = name;
   if (legalName) tenant.legalName = legalName;
   if (cnpj) tenant.cnpj = cnpj;
@@ -845,7 +868,11 @@ apiRouter.put('/tenants/:id', (req: AuthenticatedRequest, res: Response) => {
   if (city) tenant.city = city;
   if (state) tenant.state = state;
 
-  // Security check: Only Super Admin can change plan limits and subscription status
+  // Security check: Only Super Admin can change plan limits, subscription status, and allowed operations
+  if (allowedOperations && isSuperAdmin) {
+    tenant.allowedOperations = allowedOperations;
+  }
+
   if (plan && plan !== tenant.plan) {
     if (!isSuperAdmin) {
       return res.status(403).json({ error: 'Apenas o Super Administrador pode alterar o plano contratado da empresa.' });
@@ -932,28 +959,132 @@ apiRouter.get('/users', (req: AuthenticatedRequest, res: Response) => {
 });
 
 apiRouter.post('/users', async (req: AuthenticatedRequest, res: Response) => {
-  const { name, email, phone, role, tenantId, password } = req.body;
+  const { 
+    name, 
+    email, 
+    phone, 
+    role, 
+    tenantId, 
+    password,
+    // Driver fields
+    createAsDriver,
+    cpf,
+    rg,
+    birthDate,
+    zipCode,
+    address,
+    city,
+    state,
+    cnh,
+    cnhCategory,
+    cnhExpiresAt,
+    rntrc,
+    notes,
+    // Bank info
+    bankName,
+    bankAgency,
+    bankAccount,
+    pixKeyType,
+    pixKey,
+    // Vehicle fields
+    vehicleType,
+    vehicleBrand,
+    vehicleModel,
+    vehicleYear,
+    vehiclePlate,
+    vehicleRenavam,
+    capacityKg,
+    bodyType
+  } = req.body;
+
   const targetTenantId = req.user?.role === 'SUPER_ADMIN' ? (tenantId || db.tenants[0].id) : req.user?.tenantId;
 
   if (!name || !email) {
     return res.status(400).json({ error: 'Nome e e-mail são obrigatórios' });
   }
 
+  // Check if email already registered
+  const emailExists = db.users.some(u => u.email.toLowerCase() === email.toLowerCase());
+  if (emailExists) {
+    return res.status(400).json({ error: 'Este e-mail já está sendo utilizado por outra conta.' });
+  }
+
   const hashedPassword = password && password.trim() ? await bcrypt.hash(password.trim(), 10) : undefined;
+  const now = new Date().toISOString();
+
+  const newUserId = `user-${Date.now()}`;
+  const newDriverId = `driver-${Date.now()}`;
+  const isDriver = role === 'MOTORISTA' || createAsDriver;
 
   const newUser: User = {
-    id: `user-${Date.now()}`,
+    id: newUserId,
     tenantId: targetTenantId || null,
     name,
     email,
     phone: phone || '',
-    role: role || 'USUARIO',
+    role: isDriver ? 'MOTORISTA' : (role || 'USUARIO'),
     status: 'ATIVO',
     password: hashedPassword,
-    createdAt: new Date().toISOString()
+    driverId: isDriver ? newDriverId : undefined,
+    createdAt: now
   };
 
   db.users.push(newUser);
+
+  if (isDriver) {
+    const newDriver: Driver = {
+      id: newDriverId,
+      userId: newUserId,
+      tenantId: targetTenantId || db.tenants[0].id,
+      name,
+      cpf: cpf || '',
+      rg: rg || '',
+      birthDate: birthDate || '1990-01-01',
+      phone: phone || '',
+      email,
+      zipCode: zipCode || '15000-000',
+      address: address || '',
+      city: city || 'São José do Rio Preto',
+      state: state || 'SP',
+      cnh: cnh || '',
+      cnhCategory: cnhCategory || 'C',
+      cnhExpiresAt: cnhExpiresAt || '2028-12-31',
+      status: 'DISPONIVEL',
+      rating: 5.0,
+      completedTrips: 0,
+      rntrc: rntrc || '',
+      notes: notes || '',
+      bankName: bankName || '',
+      bankAgency: bankAgency || '',
+      bankAccount: bankAccount || '',
+      pixKeyType: pixKeyType || '',
+      pixKey: pixKey || '',
+      createdAt: now
+    };
+
+    db.drivers.push(newDriver);
+
+    // If vehicle plate or model was provided, create a vehicle too
+    if (vehiclePlate || vehicleModel) {
+      const newVehicleId = `vehicle-${Date.now()}`;
+      const newVehicle: Vehicle = {
+        id: newVehicleId,
+        driverId: newDriverId,
+        tenantId: targetTenantId || db.tenants[0].id,
+        type: vehicleType || 'TRUCK',
+        brand: vehicleBrand || 'Mercedes-Benz',
+        model: vehicleModel || 'Atego',
+        year: Number(vehicleYear) || 2022,
+        plate: vehiclePlate || 'ABC1D23',
+        renavam: vehicleRenavam || '00123456789',
+        capacityKg: Number(capacityKg) || 12000,
+        bodyType: bodyType || 'BAU',
+        status: 'ATIVO',
+        createdAt: now
+      };
+      db.vehicles.push(newVehicle);
+    }
+  }
 
   db.addAuditLog({
     tenantId: targetTenantId || undefined,
@@ -963,7 +1094,9 @@ apiRouter.post('/users', async (req: AuthenticatedRequest, res: Response) => {
     action: 'CRIACAO_USUARIO',
     entity: 'User',
     entityId: newUser.id,
-    details: `Criado usuário ${newUser.name} com perfil ${newUser.role}`
+    details: isDriver 
+      ? `Criado usuário ${newUser.name} com perfil Motorista e registro completo de documentos, dados bancários e veículo`
+      : `Criado usuário ${newUser.name} com perfil ${newUser.role}`
   });
 
   res.status(201).json(sanitizeUser(newUser));
@@ -1606,6 +1739,15 @@ apiRouter.post('/freights/:id/status', (req: AuthenticatedRequest, res: Response
       title: `📦 Status do frete #${freight.code} atualizado`,
       message: `Novo status: ${newStatus}${notes ? ` - ${notes}` : ''}`
     });
+
+    // WhatsApp Notification
+    const user = db.users.find(u => u.id === targetUserId);
+    if (user?.phone) {
+      sendToWhatsAppGateway(db.globalWhatsAppConfig, {
+        number: user.phone.replace(/\D/g, ''),
+        body: `[ELO LOG] Frete #${freight.code} atualizado para: ${newStatus}`
+      }).catch(err => console.error('Failed to send WhatsApp status notification:', err));
+    }
   }
 
   db.addAuditLog({
@@ -2567,8 +2709,6 @@ apiRouter.get('/database/schema', (req: AuthenticatedRequest, res: Response) => 
 
 // Generate dynamic SSH installer script
 apiRouter.get('/installation/ssh-script', (req: AuthenticatedRequest, res: Response) => {
-  const fs = require('fs');
-  const path = require('path');
   const installScriptPath = path.join(process.cwd(), 'install.sh');
   
   if (fs.existsSync(installScriptPath)) {
@@ -2582,8 +2722,6 @@ apiRouter.get('/installation/ssh-script', (req: AuthenticatedRequest, res: Respo
 
 // Generate Portainer stack docker-compose YAML
 apiRouter.get('/installation/portainer-stack', (req: AuthenticatedRequest, res: Response) => {
-  const fs = require('fs');
-  const path = require('path');
   const portainerPath = path.join(process.cwd(), 'docker-compose.portainer.yml');
   
   if (fs.existsSync(portainerPath)) {
@@ -2846,6 +2984,25 @@ apiRouter.delete('/expenses/:id', (req: AuthenticatedRequest, res: Response) => 
   });
 
   res.json({ success: true, message: 'Relatório excluído com sucesso' });
+});
+
+// Help Pages Endpoints
+apiRouter.get('/help', (req: AuthenticatedRequest, res: Response) => {
+  res.json(db.helpPages);
+});
+
+apiRouter.post('/help', (req: AuthenticatedRequest, res: Response) => {
+  if (req.user?.role !== 'SUPER_ADMIN') {
+    return res.status(403).json({ error: 'Apenas Super Administradores podem editar a ajuda.' });
+  }
+  const { role, content } = req.body;
+  const index = db.helpPages.findIndex(h => h.role === role);
+  if (index !== -1) {
+    db.helpPages[index].content = content;
+  } else {
+    db.helpPages.push({ role, content });
+  }
+  res.json({ success: true });
 });
 
 // Email Test Endpoint (Strictly Super Admin only to prevent unauthorized relay / SSRF)

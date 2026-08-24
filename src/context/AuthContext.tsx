@@ -143,7 +143,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (token && token !== '') {
         refreshNotifications();
       }
-    }, 8000);
+    }, 30000);
 
     return () => clearInterval(interval);
   }, [refreshProfile, refreshNotifications]);

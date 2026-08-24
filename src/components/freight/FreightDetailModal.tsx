@@ -89,6 +89,11 @@ export const FreightDetailModal: React.FC<FreightDetailModalProps> = ({
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">Frete #{freight.code}</h2>
                 <StatusBadge status={freight.status} />
+                {freight.operationType === 'LOGISTICA_VEICULOS' && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">
+                    LOGÍSTICA DE VEÍCULOS
+                  </span>
+                )}
               </div>
               <p className="text-xs text-slate-500">
                 Criado por {freight.createdByName} em {new Date(freight.createdAt).toLocaleDateString()}
@@ -216,11 +221,30 @@ export const FreightDetailModal: React.FC<FreightDetailModalProps> = ({
           </div>
 
           <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
-            <span className="text-emerald-800 dark:text-emerald-300 uppercase font-bold text-[10px]">Valor do Frete</span>
-            <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
-              R$ {freight.payment.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </p>
-            <p className="text-slate-500">{freight.payment.paymentMethod}</p>
+            {freight.operationType === 'LOGISTICA_VEICULOS' ? (
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <span className="text-emerald-800 dark:text-emerald-300 uppercase font-bold text-[10px]">NF ao Cliente</span>
+                  <p className="text-sm font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
+                    R$ {(freight.payment.clientRevenue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-orange-800 dark:text-orange-300 uppercase font-bold text-[10px]">Repasse Motorista</span>
+                  <p className="text-sm font-black text-orange-600 dark:text-orange-400 mt-0.5">
+                    R$ {(freight.payment.driverCost || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <span className="text-emerald-800 dark:text-emerald-300 uppercase font-bold text-[10px]">Valor do Frete</span>
+                <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
+                  R$ {freight.payment.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+              </>
+            )}
+            <p className="text-slate-500 text-xs mt-1">Pgto: {freight.payment.paymentMethod}</p>
           </div>
         </div>
 

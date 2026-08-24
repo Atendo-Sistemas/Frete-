@@ -19,20 +19,34 @@ import {
   EyeOff,
   Palette,
   FileText,
-  Database
+  Database,
+  Compass,
+  BookOpen
 } from 'lucide-react';
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
 import { SqlAndInstallationConfig } from './SqlAndInstallationConfig';
+import { MapboxConfigPanel } from './MapboxConfigPanel';
 
 export const SaaSConfigPanel: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
-  const [activeSubTab, setActiveSubTab] = useState<'branding' | 'plans' | 'rules' | 'gateway' | 'layout' | 'fields' | 'email' | 'sql-installation'>('sql-installation');
+  const [activeSubTab, setActiveSubTab] = useState<'branding' | 'plans' | 'rules' | 'gateway' | 'layout' | 'fields' | 'email' | 'sql-installation' | 'mapbox' | 'help'>('sql-installation');
   const [selectedForm, setSelectedForm] = useState<'userForm' | 'freightForm' | 'driverForm' | 'expenseForm'>('freightForm');
   const [showToken, setShowToken] = useState(false);
 
   // SaaS configuration state
   const [config, setConfig] = useState<SaaSGlobalConfig | null>(null);
+
+  // Help state
+  const [helpRole, setHelpRole] = useState<'ADMIN' | 'SUPERVISOR' | 'USER' | 'DRIVER'>('ADMIN');
+  const [helpContent, setHelpContent] = useState<Record<string, string>>({
+    ADMIN: '',
+    SUPERVISOR: '',
+    USER: '',
+    DRIVER: ''
+  });
 
   // WhatsApp configuration state
   const [waConfig, setWaConfig] = useState<WhatsAppConfig | null>(null);
@@ -51,10 +65,17 @@ export const SaaSConfigPanel: React.FC = () => {
   const loadAllConfigs = async () => {
     setLoading(true);
     try {
-      const [saasData, waData] = await Promise.all([
+      const [saasData, waData, helpData] = await Promise.all([
         api.getSaaSGlobalConfig(),
-        api.getWhatsAppConfig()
+        api.getWhatsAppConfig(),
+        api.getHelp()
       ]);
+
+      const contentMap: Record<string, string> = {};
+      helpData.forEach((h: { role: string, content: string }) => {
+        contentMap[h.role] = h.content;
+      });
+      setHelpContent(contentMap);
 
       // Ensure layout configuration has secure defaults
       if (!saasData.layout) {
@@ -363,6 +384,28 @@ export const SaaSConfigPanel: React.FC = () => {
             }`}
           >
             <Database className="w-4 h-4 shrink-0" /> SQL & Instalação VPS
+          </button>
+
+          <button
+            onClick={() => setActiveSubTab('mapbox')}
+            className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2.5 cursor-pointer ${
+              activeSubTab === 'mapbox'
+                ? 'bg-sky-600 text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+            }`}
+          >
+            <Compass className="w-4 h-4 shrink-0" /> Mapbox API & Rastreio
+          </button>
+
+          <button
+            onClick={() => setActiveSubTab('help')}
+            className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2.5 cursor-pointer ${
+              activeSubTab === 'help'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+            }`}
+          >
+            <BookOpen className="w-4 h-4 shrink-0" /> Editor de Ajuda
           </button>
         </div>
 
@@ -1377,6 +1420,89 @@ export const SaaSConfigPanel: React.FC = () => {
               }}
               saving={saving}
             />
+          )}
+
+          {/* TAB 9: MAPBOX API & RASTREIO */}
+          {activeSubTab === 'mapbox' && config && (
+            <MapboxConfigPanel
+              config={config}
+              onUpdateConfig={async (updated) => {
+                const newConfig = { ...config, ...updated };
+                setConfig(newConfig);
+                await api.updateSaaSGlobalConfig(newConfig);
+                setMessage({ text: 'Configurações do Mapbox salvas com sucesso!', type: 'success' });
+                setTimeout(() => setMessage(null), 4000);
+              }}
+              saving={saving}
+            />
+          )}
+
+          {/* TAB 10: HELP EDITOR */}
+          {activeSubTab === 'help' && (
+            <div className="space-y-6">
+              <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
+                <h3 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-emerald-500" />
+                  Editor do Módulo de Ajuda
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Gerencie o conteúdo de ajuda exibido para cada perfil de usuário do sistema.
+                </p>
+              </div>
+              <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
+                {(['ADMIN', 'SUPERVISOR', 'USER', 'DRIVER'] as const).map(role => (
+                  <button
+                    key={role}
+                    onClick={() => setHelpRole(role)}
+                    className={`px-4 py-2 rounded-lg font-bold text-sm shrink-0 cursor-pointer transition-colors ${helpRole === role ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+                  >
+                    {role}
+                  </button>
+                ))}
+              </div>
+              <div className="bg-white dark:bg-slate-800 rounded-xl">
+                <ReactQuill 
+                  theme="snow"
+                  placeholder={`Escreva as instruções, regras ou guias de ajuda com suporte a imagens e HTML para o perfil ${helpRole}...`}
+                  value={helpContent[helpRole] || ''}
+                  onChange={value => setHelpContent(prev => ({ ...prev, [helpRole]: value }))}
+                  className="h-80 mb-12"
+                  modules={{
+                    toolbar: [
+                      [{ 'header': [1, 2, 3, false] }],
+                      ['bold', 'italic', 'underline', 'strike', 'blockquote'],
+                      [{'list': 'ordered'}, {'list': 'bullet'}, {'indent': '-1'}, {'indent': '+1'}],
+                      ['link', 'image'],
+                      ['clean']
+                    ],
+                  }}
+                />
+              </div>
+              <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
+                <div className="text-xs text-slate-500 max-w-md">
+                  <span>Para visualizar o resultado final, acesse a opção <strong>"Ajuda"</strong> no menu principal. O conteúdo exibido respeitará o perfil do usuário logado.</span>
+                </div>
+                <button 
+                  onClick={async () => {
+                    setSaving(true);
+                    try {
+                      await api.saveHelp(helpRole, helpContent[helpRole]);
+                      setMessage({ text: `Ajuda para o perfil ${helpRole} salva com sucesso!`, type: 'success' });
+                      setTimeout(() => setMessage(null), 4000);
+                    } catch (err) {
+                      setMessage({ text: 'Erro ao salvar ajuda', type: 'error' });
+                      setTimeout(() => setMessage(null), 4000);
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                  disabled={saving}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer disabled:opacity-50 transition-colors shadow-xs"
+                >
+                  {saving ? 'Gravando...' : `Salvar Ajuda para ${helpRole}`}
+                </button>
+              </div>
+            </div>
           )}
 
         </div>

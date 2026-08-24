@@ -12,6 +12,7 @@ import { FormFillModal } from './components/forms/FormFillModal';
 import { FreightFormModal } from './components/freight/FreightFormModal';
 import { UserManager } from './components/users/UserManager';
 import { AuditLogViewer } from './components/audit/AuditLogViewer';
+import { HelpPanel } from './components/common/HelpPanel';
 import { SuperAdminDashboard } from './components/superadmin/SuperAdminDashboard';
 import { SaaSConfigPanel } from './components/superadmin/SaaSConfigPanel';
 import { ExpenseManager } from './components/expenses/ExpenseManager';
@@ -94,6 +95,10 @@ const AppContent: React.FC = () => {
             <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6">
               <ExpenseManager currentUser={user} />
             </div>
+          ) : activeTab === 'help' ? (
+            <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6">
+              <HelpPanel role={user.role} />
+            </div>
           ) : (
             <DriverDashboard onOpenFormModal={handleOpenFormModal} />
           )
@@ -105,6 +110,7 @@ const AppContent: React.FC = () => {
             {activeTab === 'forms' && <FormBuilder />}
             {activeTab === 'users' && <UserManager />}
             {activeTab === 'audit' && <AuditLogViewer />}
+            {activeTab === 'help' && <HelpPanel role={user.role} />}
             {activeTab === 'saas-tenants' && <SuperAdminDashboard />}
             {activeTab === 'saas-config' && <SaaSConfigPanel />}
           </div>

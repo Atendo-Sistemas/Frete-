@@ -112,6 +112,7 @@ export interface Tenant {
   status: TenantStatus;
   plan: 'BASICO' | 'PROFISSIONAL' | 'EMPRESARIAL';
   planLimits: TenantPlanLimits;
+  allowedOperations?: OperationType[];
   createdAt: string;
   updatedAt: string;
 }
@@ -156,6 +157,11 @@ export interface Driver {
   vehiclesCount?: number;
   rntrc?: string;
   notes?: string;
+  bankName?: string;
+  bankAgency?: string;
+  bankAccount?: string;
+  pixKeyType?: string;
+  pixKey?: string;
   createdAt: string;
   updatedAt?: string;
 }
@@ -220,12 +226,16 @@ export interface FreightRequirements {
 }
 
 export interface FreightPayment {
-  price: number;
+  price: number; // Used for general cargo or as a fallback
+  clientRevenue?: number; // Valor cobrado do cliente (NF/CT-e)
+  driverCost?: number; // Valor repassado ao motorista
   paymentMethod: PaymentMethod;
   tollIncluded: boolean;
   advancePercentage?: number;
   notes?: string;
 }
+
+export type OperationType = 'CARGA_GERAL' | 'LOGISTICA_VEICULOS';
 
 export interface FreightStatusHistoryEntry {
   status: FreightStatus;
@@ -241,6 +251,7 @@ export interface Freight {
   code: string;
   tenantId: string;
   tenantName?: string;
+  operationType?: OperationType;
   origin: FreightLocation;
   destination: FreightLocation;
   distanceKm: number;
@@ -484,6 +495,15 @@ export interface ImageCompressionConfig {
   maxFileSizeKB: number;
 }
 
+export interface MapboxConfig {
+  enabled: boolean;
+  apiKey: string;
+  defaultZoom: number;
+  defaultStyle: 'streets-v12' | 'satellite-streets-v12' | 'dark-v11' | 'light-v11' | 'navigation-night-v1';
+  enableLiveTracking: boolean;
+  updateIntervalSeconds: number;
+}
+
 export interface SaaSGlobalConfig {
   systemName: string;
   supportPhone: string;
@@ -499,6 +519,7 @@ export interface SaaSGlobalConfig {
   emailConfig?: EmailConfig;
   databaseConfig?: SqlDatabaseConfig;
   imageCompression?: ImageCompressionConfig;
+  mapboxConfig?: MapboxConfig;
 }
 
 export type ExpenseCategory = 

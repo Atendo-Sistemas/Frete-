@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Freight } from '../../types';
+import { useSaaS } from '../../context/SaaSContext';
+import { InteractiveLeafletMap } from './InteractiveLeafletMap';
+import { InteractiveMapboxView } from './InteractiveMapboxView';
 import { 
   X, 
   MapPin, 
@@ -15,7 +18,8 @@ import {
   RefreshCw, 
   ShieldCheck, 
   Phone,
-  AlertTriangle
+  AlertTriangle,
+  Globe
 } from 'lucide-react';
 
 interface LiveRouteTrackingModalProps {
@@ -24,6 +28,9 @@ interface LiveRouteTrackingModalProps {
 }
 
 export const LiveRouteTrackingModal: React.FC<LiveRouteTrackingModalProps> = ({ freight, onClose }) => {
+  const { config } = useSaaS();
+  const mapboxConfig = config?.mapboxConfig;
+  const isMapboxActive = mapboxConfig?.enabled && mapboxConfig?.apiKey;
   const [copied, setCopied] = useState(false);
   const [gpsActive, setGpsActive] = useState(false);
   const [driverCoords, setDriverCoords] = useState<{ lat: number; lng: number; speed: number; accuracy: number } | null>(null);
@@ -136,103 +143,53 @@ export const LiveRouteTrackingModal: React.FC<LiveRouteTrackingModalProps> = ({ 
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
 
           {/* Interactive Map Visualizer Canvas */}
-          <div className="relative rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950 min-h-[280px] sm:min-h-[340px] flex flex-col justify-between p-4 sm:p-6 shadow-inner">
+          <div className="relative rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950 flex flex-col justify-between shadow-inner">
             
-            {/* Ambient Highway Route Grid Background */}
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b15_1px,transparent_1px),linear-gradient(to_bottom,#1e293b15_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none"></div>
+            {isMapboxActive ? (
+              <InteractiveMapboxView
+                apiKey={mapboxConfig.apiKey}
+                defaultStyle={mapboxConfig.defaultStyle || 'streets-v12'}
+                defaultZoom={mapboxConfig.defaultZoom || 12}
+                originCoords={{
+                  lat: freight.origin.lat || -23.5505,
+                  lng: freight.origin.lng || -46.6333,
+                  name: freight.origin.city || 'Origem'
+                }}
+                destCoords={{
+                  lat: freight.destination.lat || -22.9068,
+                  lng: freight.destination.lng || -43.1729,
+                  name: freight.destination.city || 'Destino'
+                }}
+                currentCoords={{
+                  lat: driverCoords?.lat || freight.origin.lat || -23.4500,
+                  lng: driverCoords?.lng || freight.origin.lng || -46.5000,
+                  speed: driverCoords?.speed || 68
+                }}
+                vehiclePlate={freight.assignedVehiclePlate || 'ABC-1234'}
+                driverName={freight.assignedDriverName || 'Motorista'}
+              />
+            ) : (
+              <InteractiveLeafletMap
+                originCoords={{
+                  lat: freight.origin.lat || -23.5505,
+                  lng: freight.origin.lng || -46.6333,
+                  name: freight.origin.city || 'Origem'
+                }}
+                destCoords={{
+                  lat: freight.destination.lat || -22.9068,
+                  lng: freight.destination.lng || -43.1729,
+                  name: freight.destination.city || 'Destino'
+                }}
+                currentCoords={{
+                  lat: driverCoords?.lat || freight.origin.lat || -23.4500,
+                  lng: driverCoords?.lng || freight.origin.lng || -46.5000,
+                  speed: driverCoords?.speed || 68
+                }}
+                vehiclePlate={freight.assignedVehiclePlate || 'ABC-1234'}
+                driverName={freight.assignedDriverName || 'Motorista'}
+              />
+            )}
 
-            {/* Top Telemetry Overlay */}
-            <div className="relative z-10 flex flex-wrap items-center justify-between gap-2 bg-slate-900/90 backdrop-blur-md p-3 rounded-xl border border-slate-700/60 text-xs">
-              <div className="flex items-center gap-3">
-                <span className="flex items-center gap-1.5 text-slate-300 font-semibold">
-                  <Compass className="w-4 h-4 text-emerald-400" />
-                  Velocidade: <strong className="text-white">{driverCoords?.speed || 65} km/h</strong>
-                </span>
-                <span className="hidden sm:inline text-slate-600">•</span>
-                <span className="text-slate-300 font-semibold">
-                  Precisão GPS: <strong className="text-emerald-400">±{driverCoords?.accuracy || 8}m</strong>
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-slate-400">Restante:</span>
-                <span className="font-extrabold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/30">
-                  {kmRemaining} km (~{etaFormatted})
-                </span>
-              </div>
-            </div>
-
-            {/* Visual Highway Route Track */}
-            <div className="relative z-10 my-8 px-4 sm:px-12 flex flex-col items-center justify-center">
-              <div className="w-full relative py-6">
-                
-                {/* Background Road */}
-                <div className="h-3 w-full bg-slate-800 rounded-full border border-slate-700 relative overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-400 rounded-full transition-all duration-700"
-                    style={{ width: `${progressPercent}%` }}
-                  ></div>
-                </div>
-
-                {/* Origin Pin */}
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 flex flex-col items-center">
-                  <div className="w-6 h-6 rounded-full bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center shadow-lg ring-4 ring-slate-900">
-                    A
-                  </div>
-                  <span className="text-[11px] font-bold text-slate-300 mt-2 bg-slate-900/90 px-2 py-0.5 rounded border border-slate-800 whitespace-nowrap">
-                    {freight.origin.city}
-                  </span>
-                </div>
-
-                {/* Moving Vehicle Pin */}
-                <div 
-                  className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 flex flex-col items-center transition-all duration-700"
-                  style={{ left: `${Math.min(96, Math.max(4, progressPercent))}%` }}
-                >
-                  <div className="w-9 h-9 rounded-2xl bg-emerald-500 text-slate-950 flex items-center justify-center shadow-xl ring-4 ring-emerald-500/30 animate-bounce">
-                    <Truck className="w-5 h-5" />
-                  </div>
-                  <span className="text-[10px] font-black text-emerald-300 mt-2 bg-slate-950/90 px-2.5 py-0.5 rounded-full border border-emerald-500/40 whitespace-nowrap shadow">
-                    {freight.assignedVehiclePlate || 'Em Rota'} • {progressPercent}%
-                  </span>
-                </div>
-
-                {/* Destination Pin */}
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 flex flex-col items-center">
-                  <div className="w-6 h-6 rounded-full bg-blue-500 text-white font-black text-xs flex items-center justify-center shadow-lg ring-4 ring-slate-900">
-                    B
-                  </div>
-                  <span className="text-[11px] font-bold text-slate-300 mt-2 bg-slate-900/90 px-2 py-0.5 rounded border border-slate-800 whitespace-nowrap">
-                    {freight.destination.city}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom Route Summary Bar */}
-            <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 bg-slate-900/90 backdrop-blur-md p-3 rounded-xl border border-slate-700/60 text-xs">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span className="text-slate-300">
-                  De <strong>{originName}</strong> para <strong>{destName}</strong> ({totalKm} km)
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleOpenGoogleMaps}
-                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
-                >
-                  <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
-                  Google Maps
-                </button>
-                <button
-                  onClick={handleOpenWaze}
-                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
-                >
-                  <Navigation className="w-3.5 h-3.5 text-cyan-400" />
-                  Waze
-                </button>
-              </div>
-            </div>
           </div>
 
           {/* Stats Cards */}

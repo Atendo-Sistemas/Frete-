@@ -97,189 +97,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           </div>
 
-          {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1">
-            {isDriver ? (
-              <>
-                <button
-                  onClick={() => setActiveTab('driver-portal')}
-                  className={`px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
-                    activeTab === 'driver-portal'
-                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
-                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  🚚 Fretes Disponíveis & Meus Fretes
-                </button>
-                <button
-                  onClick={() => setActiveTab('driver-profile')}
-                  className={`px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
-                    activeTab === 'driver-profile'
-                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
-                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  👤 Meu Perfil & Veículos
-                </button>
-                <button
-                  onClick={() => setActiveTab('expenses')}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
-                    activeTab === 'expenses'
-                      ? 'bg-emerald-600 text-white font-extrabold shadow-xs'
-                      : 'text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
-                  }`}
-                >
-                  💰 Prestação de Contas
-                </button>
-              </>
-            ) : isSuperAdmin ? (
-              <>
-                <button
-                  onClick={() => setActiveTab('saas-tenants')}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
-                    activeTab === 'saas-tenants'
-                      ? 'bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300'
-                      : 'text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40'
-                  }`}
-                >
-                  👑 Empresas SaaS
-                </button>
-                <button
-                  onClick={() => setActiveTab('saas-config')}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
-                    activeTab === 'saas-config'
-                      ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300'
-                      : 'text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
-                  }`}
-                >
-                  ⚙️ Configurações SaaS
-                </button>
-                <button
-                  onClick={() => setActiveTab('freights')}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                    activeTab === 'freights'
-                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold'
-                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                  }`}
-                >
-                  Fretes
-                </button>
-                <button
-                  onClick={() => setActiveTab('drivers')}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                    activeTab === 'drivers'
-                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold'
-                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                  }`}
-                >
-                  Motoristas
-                </button>
-                <button
-                  onClick={() => setActiveTab('expenses')}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
-                    activeTab === 'expenses'
-                      ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold'
-                      : 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
-                  }`}
-                >
-                  💰 Prestação de Contas
-                </button>
-                <button
-                  onClick={() => setActiveTab('forms')}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                    activeTab === 'forms'
-                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold'
-                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                  }`}
-                >
-                  Formulários & Checklists
-                </button>
-                <button
-                  onClick={() => setActiveTab('users')}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                    activeTab === 'users'
-                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold'
-                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                  }`}
-                >
-                  Usuários
-                </button>
-                <button
-                  onClick={() => setActiveTab('audit')}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                    activeTab === 'audit'
-                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold'
-                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                  }`}
-                >
-                  Auditoria
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={() => setActiveTab('freights')}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                    activeTab === 'freights'
-                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold'
-                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                  }`}
-                >
-                  Fretes
-                </button>
-                <button
-                  onClick={() => setActiveTab('drivers')}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                    activeTab === 'drivers'
-                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold'
-                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                  }`}
-                >
-                  Motoristas
-                </button>
-                <button
-                  onClick={() => setActiveTab('expenses')}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
-                    activeTab === 'expenses'
-                      ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold'
-                      : 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
-                  }`}
-                >
-                  💰 Prestação de Contas
-                </button>
-                <button
-                  onClick={() => setActiveTab('forms')}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                    activeTab === 'forms'
-                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold'
-                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                  }`}
-                >
-                  Formulários & Checklists
-                </button>
-                <button
-                  onClick={() => setActiveTab('users')}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                    activeTab === 'users'
-                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold'
-                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                  }`}
-                >
-                  Usuários
-                </button>
-                <button
-                  onClick={() => setActiveTab('audit')}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                    activeTab === 'audit'
-                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-semibold'
-                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                  }`}
-                >
-                  Auditoria
-                </button>
-              </>
-            )}
-          </nav>
 
           {/* Right Action Area */}
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
@@ -464,6 +281,224 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
+      {/* Secondary Row for Navigation Menu - Placed below the main header row */}
+      <div className="hidden md:block border-t border-slate-200/50 dark:border-slate-800/50 bg-slate-50/80 dark:bg-slate-900/40 transition-colors">
+        <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2">
+          <nav className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+            {isDriver ? (
+              <>
+                <button
+                  onClick={() => setActiveTab('driver-portal')}
+                  className={`px-3 py-1.5 rounded-lg text-xs lg:text-sm font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                    activeTab === 'driver-portal'
+                      ? 'bg-emerald-600 text-white font-extrabold shadow-xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  🚚 Fretes Disponíveis & Meus Fretes
+                </button>
+                <button
+                  onClick={() => setActiveTab('driver-profile')}
+                  className={`px-3 py-1.5 rounded-lg text-xs lg:text-sm font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                    activeTab === 'driver-profile'
+                      ? 'bg-emerald-600 text-white font-extrabold shadow-xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  👤 Meu Perfil & Veículos
+                </button>
+                <button
+                  onClick={() => setActiveTab('expenses')}
+                  className={`px-3 py-1.5 rounded-lg text-xs lg:text-sm font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                    activeTab === 'expenses'
+                      ? 'bg-emerald-600 text-white font-extrabold shadow-xs'
+                      : 'text-emerald-700 dark:text-emerald-300 hover:bg-slate-200 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  💰 Prestação de Contas
+                </button>
+                <button
+                  onClick={() => setActiveTab('help')}
+                  className={`px-3 py-1.5 rounded-lg text-xs lg:text-sm font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                    activeTab === 'help'
+                      ? 'bg-amber-500 text-white font-extrabold shadow-xs'
+                      : 'text-amber-700 dark:text-amber-300 hover:bg-slate-200 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  📖 Ajuda
+                </button>
+              </>
+            ) : isSuperAdmin ? (
+              <>
+                <button
+                  onClick={() => setActiveTab('saas-tenants')}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs lg:text-sm font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                    activeTab === 'saas-tenants'
+                      ? 'bg-purple-600 text-white font-bold shadow-xs'
+                      : 'text-purple-700 dark:text-purple-300 hover:bg-slate-200 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  👑 Empresas SaaS
+                </button>
+                <button
+                  onClick={() => setActiveTab('saas-config')}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs lg:text-sm font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                    activeTab === 'saas-config'
+                      ? 'bg-emerald-600 text-white font-bold shadow-xs'
+                      : 'text-emerald-700 dark:text-emerald-300 hover:bg-slate-200 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  ⚙️ Configurações
+                </button>
+                <button
+                  onClick={() => setActiveTab('freights')}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs lg:text-sm font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                    activeTab === 'freights'
+                      ? 'bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 font-semibold shadow-xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  Fretes
+                </button>
+                <button
+                  onClick={() => setActiveTab('drivers')}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs lg:text-sm font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                    activeTab === 'drivers'
+                      ? 'bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 font-semibold shadow-xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  Motoristas
+                </button>
+                <button
+                  onClick={() => setActiveTab('expenses')}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs lg:text-sm font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                    activeTab === 'expenses'
+                      ? 'bg-emerald-600 text-white font-bold shadow-xs'
+                      : 'text-emerald-700 dark:text-emerald-400 hover:bg-slate-200 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  💰 Contas
+                </button>
+                <button
+                  onClick={() => setActiveTab('forms')}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs lg:text-sm font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                    activeTab === 'forms'
+                      ? 'bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 font-semibold shadow-xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  Formulários
+                </button>
+                <button
+                  onClick={() => setActiveTab('users')}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs lg:text-sm font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                    activeTab === 'users'
+                      ? 'bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 font-semibold shadow-xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  Usuários
+                </button>
+                <button
+                  onClick={() => setActiveTab('audit')}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs lg:text-sm font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                    activeTab === 'audit'
+                      ? 'bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 font-semibold shadow-xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  Auditoria
+                </button>
+                <button
+                  onClick={() => setActiveTab('help')}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs lg:text-sm font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                    activeTab === 'help'
+                      ? 'bg-amber-500 text-white font-semibold shadow-xs'
+                      : 'text-amber-700 dark:text-amber-300 hover:bg-slate-200 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  📖 Ajuda
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => setActiveTab('freights')}
+                  className={`px-3 py-1.5 rounded-lg text-xs lg:text-sm font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                    activeTab === 'freights'
+                      ? 'bg-emerald-600 text-white font-extrabold shadow-xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-250 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  Fretes
+                </button>
+                <button
+                  onClick={() => setActiveTab('drivers')}
+                  className={`px-3 py-1.5 rounded-lg text-xs lg:text-sm font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                    activeTab === 'drivers'
+                      ? 'bg-emerald-600 text-white font-extrabold shadow-xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-250 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  Motoristas
+                </button>
+                <button
+                  onClick={() => setActiveTab('expenses')}
+                  className={`px-3 py-1.5 rounded-lg text-xs lg:text-sm font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                    activeTab === 'expenses'
+                      ? 'bg-emerald-600 text-white font-extrabold shadow-xs'
+                      : 'text-emerald-700 dark:text-emerald-400 hover:bg-slate-250 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  💰 Prestação de Contas
+                </button>
+                <button
+                  onClick={() => setActiveTab('forms')}
+                  className={`px-3 py-1.5 rounded-lg text-xs lg:text-sm font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                    activeTab === 'forms'
+                      ? 'bg-emerald-600 text-white font-extrabold shadow-xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-250 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  Formulários & Checklists
+                </button>
+                <button
+                  onClick={() => setActiveTab('users')}
+                  className={`px-3 py-1.5 rounded-lg text-xs lg:text-sm font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                    activeTab === 'users'
+                      ? 'bg-emerald-600 text-white font-extrabold shadow-xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-250 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  Usuários
+                </button>
+                <button
+                  onClick={() => setActiveTab('audit')}
+                  className={`px-3 py-1.5 rounded-lg text-xs lg:text-sm font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                    activeTab === 'audit'
+                      ? 'bg-emerald-600 text-white font-extrabold shadow-xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-250 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  Auditoria
+                </button>
+                <button
+                  onClick={() => setActiveTab('help')}
+                  className={`px-3 py-1.5 rounded-lg text-xs lg:text-sm font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                    activeTab === 'help'
+                      ? 'bg-amber-500 text-white font-semibold shadow-xs'
+                      : 'text-amber-700 dark:text-amber-300 hover:bg-slate-250 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  📖 Ajuda
+                </button>
+              </>
+            )}
+          </nav>
+        </div>
+      </div>
+
       {/* Mobile navigation drawer */}
       {showMobileMenu && (
         <div className="md:hidden border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 pt-2 pb-4 space-y-1">
@@ -486,6 +521,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="w-full text-left px-3 py-2 rounded-md text-sm font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950"
               >
                 💰 Prestação de Contas
+              </button>
+              <button
+                onClick={() => { setActiveTab('help'); setShowMobileMenu(false); }}
+                className="w-full text-left px-3 py-2 rounded-md text-sm font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950"
+              >
+                📖 Ajuda
               </button>
             </>
           ) : isSuperAdmin ? (
@@ -538,6 +579,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 🛡️ Logs de Auditoria
               </button>
+              <button
+                onClick={() => { setActiveTab('help'); setShowMobileMenu(false); }}
+                className="w-full text-left px-3 py-2 rounded-md text-sm font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950"
+              >
+                📖 Ajuda
+              </button>
             </>
           ) : (
             <>
@@ -576,6 +623,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="w-full text-left px-3 py-2 rounded-md text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 🛡️ Logs de Auditoria
+              </button>
+              <button
+                onClick={() => { setActiveTab('help'); setShowMobileMenu(false); }}
+                className="w-full text-left px-3 py-2 rounded-md text-sm font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950"
+              >
+                📖 Ajuda
               </button>
             </>
           )}

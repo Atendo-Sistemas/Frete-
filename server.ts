@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
+import fs from 'fs';
 import { apiRouter } from './server/api';
 
 dotenv.config();
@@ -25,19 +26,23 @@ async function startServer() {
     });
   });
 
-  // Vite middleware for development vs Static files in production
-  if (process.env.NODE_ENV !== 'production') {
+  // Serve static files if built (avoids 429 dynamic load rate limit issues on complex apps)
+  const distPath = path.join(process.cwd(), 'dist');
+  const hasDist = fs.existsSync(path.join(distPath, 'index.html'));
+
+  if (process.env.NODE_ENV === 'production' || hasDist) {
+    console.log('📦 Serving production-bundled static files from /dist');
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  } else {
+    console.log('⚡ Starting Vite development server middleware');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
   }
 
   app.listen(PORT, '0.0.0.0', () => {

@@ -82,9 +82,19 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     headers
   });
 
-  const data = await res.json();
+  const text = await res.text();
+  let data: any = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch (err) {
+    if (res.status === 429) {
+      throw new Error('Limite de requisições excedido pelo servidor. Por favor, aguarde alguns segundos.');
+    }
+    throw new Error(text || 'Ocorreu um erro inesperado no servidor');
+  }
+
   if (!res.ok) {
-    throw new Error(data.message || data.error || 'Ocorreu um erro na requisição');
+    throw new Error(data.message || data.error || `Erro ${res.status}: Ocorreu um erro na requisição`);
   }
 
   return data as T;
@@ -592,6 +602,9 @@ export const api = {
     const res = await fetch('/api/database/schema', {
       headers: token ? { Authorization: `Bearer ${token}` } : {}
     });
+    if (!res.ok) {
+      throw new Error(`Erro ao carregar schema SQL: ${res.status}`);
+    }
     return res.text();
   },
 
@@ -600,6 +613,9 @@ export const api = {
     const res = await fetch('/api/installation/ssh-script', {
       headers: token ? { Authorization: `Bearer ${token}` } : {}
     });
+    if (!res.ok) {
+      throw new Error(`Erro ao carregar script SSH: ${res.status}`);
+    }
     return res.text();
   },
 
@@ -608,6 +624,25 @@ export const api = {
     const res = await fetch('/api/installation/portainer-stack', {
       headers: token ? { Authorization: `Bearer ${token}` } : {}
     });
+    if (!res.ok) {
+      throw new Error(`Erro ao carregar stack Portainer: ${res.status}`);
+    }
     return res.text();
+  },
+
+  async getHelp() {
+    return request<any>('/help');
+  },
+
+  async saveHelp(role: string, content: string) {
+    const token = getAuthToken();
+    return request('/help', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({ role, content })
+    });
   }
 };

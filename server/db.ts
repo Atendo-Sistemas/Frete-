@@ -33,6 +33,12 @@ class DatabaseStore {
   auditLogs: AuditLog[] = [];
   pages: WebPage[] = [];
   posts: BlogPost[] = [];
+  helpPages: { role: string; content: string }[] = [
+    { role: 'ADMIN', content: '' },
+    { role: 'SUPERVISOR', content: '' },
+    { role: 'USER', content: '' },
+    { role: 'DRIVER', content: '' }
+  ];
   whatsappConfigs: Map<string, WhatsAppConfig> = new Map();
   globalWhatsAppConfig: WhatsAppConfig = {
     baseUrl: process.env.WHATSAPP_API_URL || '',
@@ -138,11 +144,22 @@ class DatabaseStore {
       format: 'image/jpeg',
       autoCompressDocuments: true,
       maxFileSizeKB: 400
+    },
+    mapboxConfig: {
+      enabled: false,
+      apiKey: process.env.MAPBOX_API_KEY || '',
+      defaultZoom: 12,
+      defaultStyle: 'streets-v12',
+      enableLiveTracking: true,
+      updateIntervalSeconds: 30
     }
   };
 
   // Mutex locks for atomic operations (e.g. freight acceptance)
   private locks: Map<string, Promise<void>> = new Map();
+  
+  // Storage for auth tokens
+  private authTokens: Map<string, { userId: string, expiresAt: Date }> = new Map();
 
   constructor() {
     this.seedInitialData();
@@ -196,6 +213,21 @@ class DatabaseStore {
     return notif;
   }
 
+  // Auth token persistence methods
+  saveAuthToken(token: string, userId: string, expiresAt: Date) {
+    this.authTokens.set(token, { userId, expiresAt });
+  }
+
+  getUserIdFromToken(token: string): string | null {
+    const tokenData = this.authTokens.get(token);
+    if (!tokenData) return null;
+    if (tokenData.expiresAt < new Date()) {
+      this.authTokens.delete(token);
+      return null;
+    }
+    return tokenData.userId;
+  }
+
   private seedInitialData() {
     const now = new Date();
     const isoNow = now.toISOString();
@@ -216,6 +248,7 @@ class DatabaseStore {
       state: 'SP',
       status: 'ATIVA',
       plan: 'EMPRESARIAL',
+      allowedOperations: ['CARGA_GERAL', 'LOGISTICA_VEICULOS'],
       planLimits: {
         maxUsers: 50,
         maxDrivers: 200,
@@ -243,6 +276,7 @@ class DatabaseStore {
       state: 'SP',
       status: 'ATIVA',
       plan: 'PROFISSIONAL',
+      allowedOperations: ['CARGA_GERAL'],
       planLimits: {
         maxUsers: 15,
         maxDrivers: 50,

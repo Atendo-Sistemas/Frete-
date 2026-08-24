@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { useSaaS } from '../../context/SaaSContext';
-import { VehicleType, CargoType, PaymentMethod, BodyType, Freight } from '../../types';
-import { Truck, MapPin, DollarSign, Calendar, Package, X, Sparkles, AlertCircle } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { VehicleType, CargoType, PaymentMethod, BodyType, Freight, OperationType } from '../../types';
+import { Truck, MapPin, DollarSign, Calendar, Package, X, Sparkles, AlertCircle, Split } from 'lucide-react';
 
 interface FreightFormModalProps {
   isOpen: boolean;
@@ -13,6 +14,8 @@ interface FreightFormModalProps {
 
 export const FreightFormModal: React.FC<FreightFormModalProps> = ({ isOpen, onClose, onSuccess, freightToEdit }) => {
   const { getField } = useSaaS();
+  const { tenant } = useAuth();
+  const allowedOps = tenant?.allowedOperations || ['CARGA_GERAL'];
 
   const fCargoDesc = getField('freightForm', 'cargoDescription') || { label: 'Descrição da Carga', placeholder: 'Ex: Carga de milho ensacado', enabled: true, required: true };
   const fCargoType = getField('freightForm', 'cargoType') || { label: 'Tipo de Carga', placeholder: 'Selecione o tipo', enabled: true, required: true };
@@ -54,8 +57,14 @@ export const FreightFormModal: React.FC<FreightFormModalProps> = ({ isOpen, onCl
   const [destDate, setDestDate] = useState('2026-08-26');
   const [destTimeWindow, setDestTimeWindow] = useState('14:00 às 18:00');
 
+  const [operationType, setOperationType] = useState<OperationType>(
+    freightToEdit?.operationType || (allowedOps.includes('CARGA_GERAL') ? 'CARGA_GERAL' : 'LOGISTICA_VEICULOS')
+  );
+  const [clientRevenue, setClientRevenue] = useState('');
+  const [driverCost, setDriverCost] = useState('');
+
   const [cargoDesc, setCargoDesc] = useState('Carga geral paletizada - Peças automotivas');
-  const [cargoType, setCargoType] = useState<CargoType>('GERAL');
+  const [cargoType, setCargoType] = useState<CargoType>(allowedOps.includes('CARGA_GERAL') ? 'GERAL' : 'VEICULO');
   const [weightKg, setWeightKg] = useState('8500');
   const [volumeCount, setVolumeCount] = useState('16');
   const [cargoNotes, setCargoNotes] = useState('Carga com NF e Manifesto emitidos. Carga segurada.');
@@ -99,6 +108,10 @@ export const FreightFormModal: React.FC<FreightFormModalProps> = ({ isOpen, onCl
       setDestDate(freightToEdit.destination.date);
       setDestTimeWindow(freightToEdit.destination.timeWindow || '14:00 às 18:00');
 
+      setOperationType(freightToEdit.operationType || 'CARGA_GERAL');
+      if (freightToEdit.payment.clientRevenue) setClientRevenue(String(freightToEdit.payment.clientRevenue));
+      if (freightToEdit.payment.driverCost) setDriverCost(String(freightToEdit.payment.driverCost));
+
       setCargoDesc(freightToEdit.cargo.description);
       setCargoType(freightToEdit.cargo.type);
       setWeightKg(String(freightToEdit.cargo.weightKg));
@@ -129,8 +142,14 @@ export const FreightFormModal: React.FC<FreightFormModalProps> = ({ isOpen, onCl
       setPaymentMethod(freightToEdit.payment.paymentMethod);
       setTollIncluded(freightToEdit.payment.tollIncluded);
       setPaymentNotes(freightToEdit.payment.notes || '');
+    } else if (isOpen) {
+      // Reset form if opening for a new freight
+      setOperationType(allowedOps.includes('CARGA_GERAL') ? 'CARGA_GERAL' : 'LOGISTICA_VEICULOS');
+      setCargoType(allowedOps.includes('CARGA_GERAL') ? 'GERAL' : 'VEICULO');
+      setClientRevenue('');
+      setDriverCost('');
     }
-  }, [freightToEdit]);
+  }, [isOpen, freightToEdit]);
 
   if (!isOpen) return null;
 
@@ -179,6 +198,7 @@ export const FreightFormModal: React.FC<FreightFormModalProps> = ({ isOpen, onCl
 
     try {
       const payload = {
+        operationType,
         origin: {
           zipCode: originZip,
           address: originAddress,
@@ -220,6 +240,8 @@ export const FreightFormModal: React.FC<FreightFormModalProps> = ({ isOpen, onCl
         },
         payment: {
           price: Number(price),
+          clientRevenue: operationType === 'LOGISTICA_VEICULOS' ? Number(clientRevenue) : undefined,
+          driverCost: operationType === 'LOGISTICA_VEICULOS' ? Number(driverCost) : undefined,
           paymentMethod,
           tollIncluded,
           notes: paymentNotes
@@ -298,6 +320,51 @@ export const FreightFormModal: React.FC<FreightFormModalProps> = ({ isOpen, onCl
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
+
+          {/* Operation Type Selector */}
+          {allowedOps.length > 1 && (
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+              <label className="text-xs font-bold uppercase tracking-wider text-blue-800 dark:text-blue-300 flex items-center gap-1.5 mb-3">
+                <Split className="w-4 h-4" /> Tipo de Operação Logística
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {allowedOps.includes('CARGA_GERAL') && (
+                  <button
+                    type="button"
+                    onClick={() => setOperationType('CARGA_GERAL')}
+                    className={`py-3 px-4 rounded-lg border-2 text-sm font-bold flex items-center justify-center gap-2 transition-all ${
+                      operationType === 'CARGA_GERAL' 
+                        ? 'border-blue-600 bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-400 shadow-sm' 
+                        : 'border-transparent bg-blue-100/50 dark:bg-slate-800/50 text-slate-500 hover:bg-blue-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <Package className="w-4 h-4" /> Carga Geral (Tradicional)
+                  </button>
+                )}
+                {allowedOps.includes('LOGISTICA_VEICULOS') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOperationType('LOGISTICA_VEICULOS');
+                      setCargoType('VEICULO'); // Force cargo type
+                    }}
+                    className={`py-3 px-4 rounded-lg border-2 text-sm font-bold flex items-center justify-center gap-2 transition-all ${
+                      operationType === 'LOGISTICA_VEICULOS' 
+                        ? 'border-blue-600 bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-400 shadow-sm' 
+                        : 'border-transparent bg-blue-100/50 dark:bg-slate-800/50 text-slate-500 hover:bg-blue-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <Truck className="w-4 h-4" /> Logística de Veículos (Cegonha/Guincho)
+                  </button>
+                )}
+              </div>
+              {operationType === 'LOGISTICA_VEICULOS' && (
+                <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-2">
+                  No modo Logística de Veículos, os valores financeiros são divididos entre a <strong>Nota Fiscal ao Cliente</strong> e o <strong>Repasse ao Motorista</strong>.
+                </p>
+              )}
+            </div>
+          )}
           
           {/* Section 1: Origem e Destino */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -730,7 +797,7 @@ export const FreightFormModal: React.FC<FreightFormModalProps> = ({ isOpen, onCl
             </span>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {fValue.enabled && (
+              {fValue.enabled && operationType === 'CARGA_GERAL' && (
                 <div>
                   <label className="text-[11px] font-bold text-emerald-900 dark:text-emerald-200 block mb-1">
                     {fValue.label} {fValue.required && <span className="text-red-500">*</span>}
@@ -744,6 +811,41 @@ export const FreightFormModal: React.FC<FreightFormModalProps> = ({ isOpen, onCl
                     className="w-full px-3 py-2 bg-white dark:bg-slate-900 border-2 border-emerald-400 dark:border-emerald-600 rounded-lg text-sm font-extrabold text-emerald-700 dark:text-emerald-300"
                     placeholder={fValue.placeholder}
                   />
+                </div>
+              )}
+              {fValue.enabled && operationType === 'LOGISTICA_VEICULOS' && (
+                <div className="col-span-1 sm:col-span-2 grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[11px] font-bold text-blue-900 dark:text-blue-200 block mb-1">
+                      Valor Cobrado do Cliente (NF) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      value={clientRevenue}
+                      onChange={e => {
+                        setClientRevenue(e.target.value);
+                        setPrice(e.target.value); // fallback
+                      }}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border-2 border-blue-400 dark:border-blue-600 rounded-lg text-sm font-extrabold text-blue-700 dark:text-blue-300"
+                      placeholder="Ex: 2500.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-orange-900 dark:text-orange-200 block mb-1">
+                      Valor Repasse ao Motorista <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      value={driverCost}
+                      onChange={e => setDriverCost(e.target.value)}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border-2 border-orange-400 dark:border-orange-600 rounded-lg text-sm font-extrabold text-orange-700 dark:text-orange-300"
+                      placeholder="Ex: 1200.00"
+                    />
+                  </div>
                 </div>
               )}
               {fPaymentMethod.enabled && (

@@ -1,104 +1,123 @@
-# Elo Log - Gestão e Publicação de Fretes 🚚
+# Elo Log - Plataforma SaaS de Logística & Gestão de Fretes 🚚
 
-O **Elo Log** é uma plataforma inteligente e moderna de gestão, cotação, publicação e rastreamento de fretes em tempo real. Desenvolvido com arquitetura robusta Multi-Tenant, o sistema permite que múltiplas transportadoras gerenciem suas frotas, motoristas e fretes de forma totalmente isolada e segura.
+O **Elo Log (TransLog Brasil)** é uma plataforma inteligente e moderna para gestão, cotação, publicação e rastreamento de fretes em tempo real. Desenvolvida sob uma arquitetura robusta **Multi-Tenant (SaaS)**, permite que a holding administre múltiplas transportadoras de forma totalmente isolada e segura.
 
 ---
 
-## ✨ Principais Funcionalidades
+## ✨ Funcionalidades Principais Disponíveis
 
-### 🏢 Painel do Super Administrador (SaaS Global)
-* **Gestão Multi-Tenant**: Visão macro e controle total de todas as transportadoras contratantes cadastradas no sistema.
-* **Planos & Limites**: Configuração flexível de planos SaaS (Básico, Profissional, Empresarial) com limites automáticos de usuários, motoristas cadastrados e fretes mensais.
-* **Isolamento de Dados**: Garantia de privacidade e segurança com escopo de tenant em nível de banco de dados.
+### 1. Painel Super Administrador SaaS (Gestão Global)
+O coração da operação SaaS, permitindo parametrização completa de toda a plataforma de ponta a ponta:
+* **Gestão de Empresas (Tenants)**: Crie, edite, bloqueie ou aprove transportadoras com isolamento de banco de dados.
+* **Branding & Apresentação**: Personalize o nome da plataforma e os dados de suporte oficiais.
+* **Planos & Limites Corporativos**: Defina os limites de usuários, frotas e regras comerciais de comissionamento SaaS.
+* **Editor de Ajuda Multinível**: Um editor Rich Text (suporte a HTML e imagens) para criar manuais de ajuda personalizados por perfil (Admin, Supervisor, Motorista, Usuário).
+* **Integração Gateway WhatsApp**: Parametrização para envio de mensagens OTP corporativas e alertas automatizados em tempo real para os motoristas.
+* **Layout & Design**: Ajuste de tipografia global e padrões visuais do sistema.
+* **Campos Customizados**: Criação dinâmica de campos extras para os formulários da plataforma.
+* **Mapbox API & Rastreio**: Gestão de tokens de GPS e tracking de cargas.
+* **Instalação VPS & SQL**: Orientações gerenciais da infraestrutura em nuvem.
 
-### 👤 Gestão de Motoristas & Frotas
-* **Cadastro Completo**: Fluxo de cadastro e edição de motoristas autônomos e agregados, incluindo dados pessoais, CNH, categoria de habilitação (B, C, D, E) e RNTRC.
-* **Vínculo de Veículos**: Associação rápida de veículos com especificações de capacidade de carga, tipo de veículo (Truck, Carreta, Bitrem, Toco, Van), marca, modelo e placa (padrão Mercosul).
-* **Avaliações & Histórico**: Acompanhamento de viagens concluídas e reputação de cada motorista cadastrado.
+### 2. Painel da Empresa (Tenant)
+Visão isolada para as transportadoras gerenciarem seu dia a dia operacional:
+* **Gestão de Fretes**: Publicação de cargas, precificação, atribuição a motoristas e monitoramento de status (Pendente, Em Trânsito, Concluído).
+* **Gestão de Motoristas & Frotas**: Controle de CNH, RNTRC, agregados e vínculos de veículos (Truck, Carreta, Toco, Van, etc).
+* **Formulários & Checklists**: Criação de formulários de vistoria de segurança (Pneus, Freios, Lonas) que o motorista precisa preencher ao aceitar uma carga.
+* **Prestação de Contas**: Sistema integrado de despesas (combustível, pedágio, manutenção) onde as aprovações financeiras são feitas.
+* **Gestão de Usuários**: Convite e administração da equipe interna (Supervisores Operacionais, Analistas, etc).
 
-### 📦 Publicação de Fretes & Cotações
-* **Publicação Inteligente**: Ferramenta dinâmica para cadastrar novos fretes detalhando carga, rota (origem e destino), datas limite, peso, volume e valor orçado.
-* **Rastreamento em Tempo Real**: Monitoramento constante do status de cada frete (Aguardando Propostas, Em Trânsito, Concluído, Cancelado).
+### 3. Painel do Motorista Autônomo / Agregado
+Visão simplificada e otimizada para uso em dispositivos móveis na estrada:
+* **Meus Fretes**: Lista de viagens atribuídas, aceite de cargas e checklist de saída.
+* **Prestação de Contas Mobile**: Envio de despesas direto pelo celular, com upload de fotos de recibos/comprovantes em tempo real.
+* **Meu Perfil**: Atualização de CNH, documentação e veículos atrelados.
 
-### 🛡️ Auditoria & Segurança
-* **Logs de Auditoria**: Registro transparente de todas as atividades críticas do sistema (criação e atualização de empresas, ações de motoristas e alterações de usuários) para conformidade e segurança.
-
-### 📱 Suporte PWA (Progressive Web App)
-* **Instalável**: Suporte nativo a manifesto PWA para instalação instantânea como app de desktop ou mobile.
-* **Inicialização Standalone**: Interface de tela cheia livre de barras do navegador, otimizada para o dia a dia na estrada e escritórios de logística.
+### 4. Níveis de Acesso (RBAC)
+* **Super Admin SaaS**: Controle global e parametrização.
+* **Empresa Admin (Gerente)**: Controle total de uma transportadora (Tenant) específica.
+* **Supervisor Operacional**: Responsável pela aprovação de despesas, liberação de veículos e monitoramento de fretes.
+* **Motorista**: Acesso apenas às suas próprias viagens e gastos.
 
 ---
 
 ## 🛠️ Stack Tecnológico
 
-A aplicação utiliza as tecnologias mais modernas do mercado para garantir alta performance, responsividade e robustez:
-
-* **Frontend**: [React 18](https://react.dev/) com [Vite](https://vitejs.dev/) para builds ultra-rápidos.
-* **Linguagem**: [TypeScript](https://www.typescriptlang.org/) proporcionando tipagem estática forte e segurança de código.
-* **Estilização**: [Tailwind CSS](https://tailwindcss.com/) para um design fluido, moderno, consistente e responsivo.
-* **Ícones**: [Lucide React](https://lucide.dev/) para uma identidade visual limpa e elegante.
-* **Servidor backend**: [Express](https://expressjs.com/) em [Node.js](https://nodejs.org/) para APIs de alta performance com proxies robustos e seguros.
+A aplicação foi construída visando escalabilidade e alta performance:
+* **Frontend**: React 19 + Vite.
+* **Linguagem**: TypeScript.
+* **Estilização**: Tailwind CSS.
+* **Componentes & Ícones**: Lucide React, React-Quill-New (Editor HTML).
+* **Backend**: Express (Node.js) com APIs REST operando na mesma infraestrutura (Full-Stack).
+* **Autenticação de Teste**: Barra de ferramentas DevTols inclusa para alternar facilmente entre perfis durante a homologação.
 
 ---
 
-## 🚀 Como Iniciar o Projeto
+## 🚀 Guia de Instalação e Execução
 
 ### Pré-requisitos
 * Node.js (versão 18 ou superior)
-* npm (gerenciador de pacotes padrão)
+* npm (gerenciador de pacotes)
 
 ### 1. Clonar o repositório e instalar dependências
 ```bash
-# Instalar os pacotes necessários
+# Clone o projeto (caso tenha o git) ou extraia o arquivo ZIP
+git clone <url-do-repositorio>
+cd <nome-da-pasta>
+
+# Instale os pacotes necessários
 npm install
 ```
 
-### 2. Rodar em Modo de Desenvolvimento
+### 2. Configurar Variáveis de Ambiente
+O projeto exige a configuração do `.env`. Se existir um arquivo `.env.example`, crie uma cópia chamada `.env`:
+```bash
+cp .env.example .env
+```
+*(As chaves secretas do servidor Express deverão ser populadas lá)*
+
+### 3. Iniciar o Ambiente de Desenvolvimento
+Este comando liga o Vite (frontend) e o TSX (backend) com *Hot Module Replacement*:
 ```bash
 npm run dev
 ```
-O servidor de desenvolvimento iniciará automaticamente.
+Acesse no seu navegador: `http://localhost:3000`
 
-### 3. Build de Produção
+### 4. Build de Produção
+Para implantar a plataforma em servidores na nuvem (VPS, Cloud Run, Heroku), é necessário fazer o build. Isso compilará o Frontend e encapsulará o Backend em um único arquivo CommonJS seguro:
 ```bash
-# Compila o frontend estático e encapsula o backend TypeScript em CJS
 npm run build
 ```
 
-### 4. Executar em Produção
+### 5. Executar em Produção
+Após o build, inicie o servidor definitivo:
 ```bash
 npm run start
 ```
 
 ---
 
-## 📁 Estrutura de Diretórios do Projeto
+## 📁 Estrutura de Diretórios Resumida
 
 ```text
-├── server/                 # Código do servidor Node.js/Express
-│   └── api.ts              # Endpoints da API REST e lógica de dados mockados
-├── src/                    # Código-fonte do frontend React
-│   ├── components/         # Componentes modulares reutilizáveis
-│   │   ├── audit/          # Painéis de controle de logs e conformidade
-│   │   ├── common/         # Badges, alertas e UI compartilhada
-│   │   ├── company/        # Dashboard de transportadoras (Tenant View)
-│   │   ├── drivers/        # Gerenciamento de motoristas e veículos
-│   │   ├── freight/        # Gestão e listagem de fretes
-│   │   ├── layout/         # Navbar, Sidebar e estruturas de navegação
-│   │   ├── superadmin/     # Dashboard principal para admins globais
-│   │   └── users/          # Administração de usuários e convites
-│   ├── context/            # Contextos globais (Autenticação, Tema, etc.)
-│   ├── services/           # Comunicação e requisições HTTP da API
-│   ├── types/              # Definições de tipos TypeScript compartilhados
-│   ├── App.tsx             # Componente raiz do React
-│   └── main.tsx            # Ponto de entrada do cliente e registro do Service Worker
-├── public/                 # Ativos estáticos e manifesto PWA
-│   └── manifest.json       # Configuração do Manifesto de Aplicativo Web
-└── package.json            # Scripts de automação e dependências do projeto
+├── server/
+│   ├── api.ts              # Endpoints da API REST e middlewares de rota
+│   └── db.ts               # Banco de dados simulado e persistência local
+├── src/
+│   ├── components/         # Componentes React modularizados
+│   │   ├── superadmin/     # ➜ Editor de Ajuda e Configurações SaaS
+│   │   ├── common/         # ➜ UI de alertas, navegação e HelpPanel
+│   │   ├── freight/        # ➜ Fluxo de fretes
+│   │   ├── drivers/        # ➜ Veículos e motoristas
+│   │   ├── accountability/ # ➜ Prestação de contas
+│   │   └── ...
+│   ├── services/
+│   │   └── api.ts          # Chamadas de rede do cliente para o Express
+│   ├── types.ts            # Interfaces TypeScript compartilhadas
+│   ├── App.tsx             # Arquitetura principal de Roteamento
+│   └── main.tsx            # Ponto de entrada do sistema
+├── package.json            # Dependências (React 19, Tailwind, Express)
+└── vite.config.ts          # Configuração de build e plugins
 ```
 
 ---
-
-## 🔒 Licença
-
-Este projeto é desenvolvido para fins corporativos de gestão e modernização da logística sob a marca **Elo Log**. Todos os direitos reservados.
+*Plataforma desenvolvida para alta performance e operação ininterrupta 24/7.*

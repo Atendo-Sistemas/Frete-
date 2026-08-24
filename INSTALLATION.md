@@ -83,9 +83,31 @@ volumes:
 
 ---
 
-## 🗄️ Configuração de Banco de Dados SQL & Parâmetros
+## 🧭 Configuração do Mapbox API & Rastreio de Veículos em Tempo Real
+
+O sistema integra a API do Mapbox GL para renderizar mapas vetoriais interativos e rastreamento GPS de frotas.
+
+### 1. Salvando as Informações no Banco de Dados
+1. Acesse o painel com uma conta **Super Admin**.
+2. Clique no menu **Super Admin & SaaS** e selecione a aba **Mapbox API & Rastreio**.
+3. Insira o seu **Mapbox Public Access Token** (ex: `pk.eyJ1...`).
+4. Ative a chave **Ativar Mapbox para Rastreio de Veículos** e clique em **Salvar Configuração do Mapbox**.
+5. *O token e os parâmetros de estilo (ruas, satélite, escuro) são salvos de forma persistente e segura no banco de dados da aplicação.*
+
+### 2. Onde Verificar o Mapa de Localização
+1. Acesse o menu **Fretes**.
+2. Localize um frete ativo e clique no botão de rastreio ou detalhes (ícone **Rastrear Trajeto GPS**).
+3. O mapa interativo do Mapbox será renderizado instantaneamente na tela, exibindo:
+   - Marcador de **Origem (A)** e **Destino (B)**.
+   - Posição em tempo real do **Veículo e Motorista** com telemetria ativa (velocidade, coordenadas e precisão GPS).
+   - Linha pontilhada indicando o trajeto completo.
 
 A aplicação suporta bancos relacionais robustos (**PostgreSQL 16+**, **MySQL** e **SQLite**).
+
+### 3. Persistência de Tokens de Autenticação
+O sistema implementou persistência de tokens no banco de dados para garantir maior segurança e consistência de sessão. Todos os tokens de autenticação gerados após o login ou registro são gravados na tabela `auth_tokens` com data de expiração, eliminando a dependência exclusiva de armazenamento no navegador.
+
+---
 
 ### Acessando o Painel Super Admin
 1. Faça login na aplicação com uma conta **Super Admin**.

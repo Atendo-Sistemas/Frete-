@@ -216,7 +216,7 @@ export const TripExpenseModal: React.FC<TripExpenseModalProps> = ({
     if (files.length > 0) {
       files.forEach(async (file) => {
         try {
-          const compressed = await compressImageFile(file, { quality: 0.8, maxWidth: 1600, maxHeight: 1600 });
+          const compressed = await compressImageFile(file as File, { quality: 0.8, maxWidth: 1600, maxHeight: 1600 });
           setNewReceiptPhotos(prev => [...prev, compressed]);
         } catch {
           const reader = new FileReader();

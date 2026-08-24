@@ -35,6 +35,38 @@ export const UserManager: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<UserRole>('ADMIN');
 
+  // Combined Driver Registration State
+  const [createAsDriver, setCreateAsDriver] = useState(false);
+  const [cpf, setCpf] = useState('');
+  const [rg, setRg] = useState('');
+  const [birthDate, setBirthDate] = useState('1990-01-01');
+  const [zipCode, setZipCode] = useState('');
+  const [address, setAddress] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('SP');
+  const [cnh, setCnh] = useState('');
+  const [cnhCategory, setCnhCategory] = useState<'B' | 'C' | 'D' | 'E'>('C');
+  const [cnhExpiresAt, setCnhExpiresAt] = useState('2028-12-31');
+  const [rntrc, setRntrc] = useState('');
+  const [notes, setNotes] = useState('');
+
+  // Driver Banking Details State
+  const [bankName, setBankName] = useState('');
+  const [bankAgency, setBankAgency] = useState('');
+  const [bankAccount, setBankAccount] = useState('');
+  const [pixKeyType, setPixKeyType] = useState('CPF');
+  const [pixKey, setPixKey] = useState('');
+
+  // Driver Vehicle Details State
+  const [vehicleType, setVehicleType] = useState('TRUCK');
+  const [vehicleBrand, setVehicleBrand] = useState('Mercedes-Benz');
+  const [vehicleModel, setVehicleModel] = useState('Atego');
+  const [vehicleYear, setVehicleYear] = useState('2022');
+  const [vehiclePlate, setVehiclePlate] = useState('');
+  const [vehicleRenavam, setVehicleRenavam] = useState('');
+  const [capacityKg, setCapacityKg] = useState('12000');
+  const [bodyType, setBodyType] = useState('BAU');
+
   // Edit Modal State
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
